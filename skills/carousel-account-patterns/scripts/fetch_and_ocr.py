@@ -14,6 +14,7 @@ Env: SCRAPE_CREATORS_API_KEY, GOOGLE_API_KEY
 Only a short summary is printed to stdout - keep context clean.
 """
 import os, sys, json, re, time, base64, argparse, urllib.request, urllib.error, concurrent.futures
+import subprocess, tempfile
 
 SC_BASE = "https://api.scrapecreators.com/v3/tiktok/profile/videos"
 GEMINI_MODEL = "gemini-3.1-flash-lite"
@@ -96,6 +97,27 @@ def sniff_mime(data):
     return "image/webp"
 
 
+def prep_image(data):
+    """Return (mime, bytes) Gemini accepts. HEIC/HEIF -> JPEG via sips (macOS);
+    Gemini rejects image/heic with HTTP 400, so convert before sending."""
+    mime = sniff_mime(data)
+    if mime == "image/heic":
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".heic", delete=False) as fi:
+                fi.write(data); src = fi.name
+            dst = src[:-5] + ".jpg"
+            subprocess.run(["sips", "-s", "format", "jpeg", src, "--out", dst],
+                           capture_output=True, timeout=30)
+            if os.path.exists(dst) and os.path.getsize(dst) > 0:
+                data = open(dst, "rb").read(); mime = "image/jpeg"
+            for p in (src, dst):
+                try: os.remove(p)
+                except OSError: pass
+        except Exception:
+            pass
+    return mime, data
+
+
 def ocr_all(carousels, g_key, workers):
     """Download + OCR every slide in one threaded pool."""
     # key goes in a header, not the URL, so it can never leak via logged/printed URLs
@@ -111,9 +133,10 @@ def ocr_all(carousels, g_key, workers):
                 img = r.read()
         except Exception as e:
             return (i, j, f"[DL-ERR: {e}]")
+        mime, img = prep_image(img)
         body = json.dumps({
             "contents": [{"parts": [
-                {"inline_data": {"mime_type": sniff_mime(img),
+                {"inline_data": {"mime_type": mime,
                                  "data": base64.b64encode(img).decode()}},
                 {"text": OCR_PROMPT},
             ]}],
