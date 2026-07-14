@@ -10,7 +10,7 @@ Three self-contained [Claude Code](https://claude.com/claude-code) skills for **
 
 All three are "research" skills: they read public TikTok data and summarize it. Nothing is posted or modified.
 
-> **Built with the carousel skill:** [viral-carousel-library.vercel.app](https://viral-carousel-library.vercel.app) — a searchable library of 15 app cases × 26 accounts × ~1000 OCR'd carousels, with an [agent entrypoint](https://viral-carousel-library.vercel.app/AGENT.md) for "pick a reference and adapt it to my product".
+> **Built with the carousel skill:** [boont.ai/carousels](https://boont.ai/carousels/) — a searchable library of 15 app cases × 26 accounts × ~1000 OCR'd carousels, with an [agent entrypoint](https://boont.ai/carousels/AGENT.md) for "pick a reference and adapt it to my product".
 
 ---
 
