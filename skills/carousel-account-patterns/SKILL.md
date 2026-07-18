@@ -4,10 +4,12 @@ description: >
   Analyze the last N (default 50) carousels of a TikTok account and extract the top
   hook/structure formulas worth adapting for the user's product. Pipeline: one script
   fetches carousels via direct ScrapeCreators REST (cursor pagination) and OCRs every
-  slide via Gemini Flash Lite (threaded download+OCR), Claude discovers patterns from
-  the ranked digest, aggregates honest per-pattern stats, and writes a structured
-  Russian report with verbatim examples, fill-in-the-blank templates, and ready-to-shoot
-  hooks adapted for the product. Trigger phrases: "разбор паттернов каруселей",
+  slide via a cheap vision model (Gemini Flash Lite, auto-fallback to Grok when Gemini
+  is unavailable/geo-blocked), Claude discovers patterns from the ranked digest,
+  natively Reads the top-reference slides to ground the visual layer, aggregates honest
+  per-pattern stats (with mapping validation), and writes a structured Russian report
+  with verbatim examples, fill-in-the-blank templates, and ready-to-shoot hooks adapted
+  for the product. Trigger phrases: "разбор паттернов каруселей",
   "проанализируй карусели аккаунта", "топ паттерны формулы каруселей", "carousel account
   patterns", "carousel patterns analysis", "формулы каруселей аккаунта", "вытащи формулы
   каруселей", "analyze account carousels", "carousel formulas from account"
@@ -28,12 +30,16 @@ and ready-to-use hooks adapted for the user's product.
 
 ## Requirements
 
-- `SCRAPE_CREATORS_API_KEY` and `GOOGLE_API_KEY` — in the environment (e.g. `~/.zshrc`;
-  run `source ~/.zshrc` in the Bash call if env vars are missing).
+- `SCRAPE_CREATORS_API_KEY` + an OCR provider key: `GOOGLE_API_KEY` (Gemini, preferred)
+  or `XAI_API_KEY` (Grok fallback). The script reads keys from shell env or from
+  `~/.zshenv` / `~/.zshrc` / the repo `.env` (via `TIKTOK_SKILLS_ROOT`) / `./.env` —
+  no `source` needed.
+  Default `--provider auto` probes Gemini and falls back to Grok automatically
+  (e.g. when Gemini is geo-blocked: «User location is not supported»).
 - Optional, for Step 5 on macOS: `sips` (built-in) — converts HEIC slides TikTok
   sometimes serves under a `.webp` name. On other platforms the file is kept as-is.
 - Cost: ~5-15 ScrapeCreators calls (10 posts/page; carousel-heavy account ≈ N/10+ pages)
-  + 1 Gemini Flash Lite call per slide (~100-150 for N=50). Whole pipeline ≈ 1-2 min.
+  + 1 cheap vision call per slide (~100-150 for N=50). Whole pipeline ≈ 1-2 min.
 
 ## Process
 
@@ -84,11 +90,30 @@ python3 ~/.claude/skills/carousel-account-patterns/scripts/aggregate.py \
 This prints the pattern table (n, peak, avg, total, save%) ranked by peak views,
 followed by a **top-reference URL per pattern** (the peak-views carousel for each) —
 use those exact links as each pattern's clickable reference in the report.
+It also WARNS about mapping ids that don't exist in the dataset (typos) and lists
+unlabeled carousels — fix the mapping and rerun until both lists are empty (or
+consciously leave them unclassified and say so in the report).
 Never eyeball-aggregate — the table in the report must come from this script.
 Key reading: **peak/avg views = reach patterns; save-rate = intent patterns** (for a
 utility app save-rate matters most). Repeated hooks with wildly different views on
 different posts = "virality is a lottery, formula is constant; repost winners" — call
 this out if present.
+
+### Step 3.5 — visual pass on top references (mandatory before writing)
+
+OCR text does not carry the visual layer (note-screenshot aesthetic, fonts, photo vs
+text slides, design series) — and «Микро-приёмы» must not be guessed from text. For
+the top 2-3 patterns, download the reference carousel's slides and **Read them
+natively** (slide 1 + one body slide each is enough):
+
+```bash
+python3 ~/.claude/skills/carousel-account-patterns/scripts/download_slides.py \
+  "<dir>/carousels_ocr.json" "<dir>/slides_<id>" --id <carousel_id>
+```
+
+While reading, verify OCR verbatimness on these covers (cheap models silently fix
+typos; a recurring typo = a reused template) and note: background style, typography,
+text density per slide, where the product appears visually.
 
 ### Step 4 — write the report
 
@@ -164,7 +189,10 @@ before scripting against it.
 
 ## Failure modes
 
-- **Missing env keys** → `source ~/.zshrc` first; if still missing, ask the user.
+- **Missing keys** → the script searches shell env + `~/.zshenv` / `~/.zshrc` + repo
+  `.env` itself; if it still exits with a key error, ask the user.
+- **Gemini «User location is not supported»** → nothing to do; `--provider auto`
+  already fell back to Grok (check the script's stdout line).
 - **OCR errors > 5%** → rerun the script (it re-fetches everything; cheap) or note
   affected carousels in the report.
 - **Account has < N carousels** → proceed, state the real count in the report header.

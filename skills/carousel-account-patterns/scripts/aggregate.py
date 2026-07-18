@@ -15,6 +15,17 @@ from collections import defaultdict
 cs = json.load(open(sys.argv[1]))
 mapping = json.load(open(sys.argv[2]))
 
+# guard against typos: every mapping id must exist in the dataset
+dataset_ids = {str(c["id"]) for c in cs}
+ghost_ids = sorted(set(mapping) - dataset_ids)
+if ghost_ids:
+    print(f"WARNING: {len(ghost_ids)} mapping id(s) not found in dataset "
+          f"(typo? their carousels got no label): {', '.join(ghost_ids)}\n")
+unmapped = sorted(i for i in dataset_ids if i not in mapping)
+if unmapped:
+    print(f"NOTE: {len(unmapped)} carousel(s) without a label -> counted as 'P? unclassified': "
+          f"{', '.join(unmapped)}\n")
+
 agg = defaultdict(lambda: {"n": 0, "views": 0, "saves": 0, "peak": 0, "ref": ""})
 for c in cs:
     g = mapping.get(str(c["id"]), "P? unclassified")

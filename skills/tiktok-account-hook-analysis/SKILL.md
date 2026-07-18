@@ -1,142 +1,171 @@
 ---
 name: tiktok-account-hook-analysis
 description: >
-  TikTok cover image hook analysis: fetches last 120 videos (all available), uses Gemini Vision
-  to OCR hook text from each video's cover/thumbnail image, then discovers
-  repeating hook text PATTERNS and calculates analytics per pattern.
-  Much faster and cheaper than full video analysis — only processes static images.
+  Cover/thumbnail hook analysis for a TikTok OR Instagram account. Fetches last N
+  videos (default 50), downloads covers, then CLAUDE reads the cover images natively
+  (both text and visual composition), clusters hook patterns across two axes
+  (text formula × visual format), and computes honest per-pattern analytics via a
+  deterministic python script. Optional FAST mode: a cheap vision model (Gemini,
+  auto-fallback Grok) extracts per-cover cards instead of native reading — but
+  clustering is ALWAYS done by Claude, never by the cheap model.
   Trigger phrases: "hook analysis tiktok", "tiktok hook analysis", "tiktok cover analysis",
   "analyze tiktok hooks", "анализ хуков тикток", "анализ обложек тикток",
-  "tiktok cover hooks", "tiktok thumbnail analysis", "хук анализ тикток",
-  "cover image analysis tiktok", "tiktok hook text", "анализ текста обложек"
+  "tiktok cover hooks", "хук анализ тикток", "анализ текста обложек",
+  "instagram hook analysis", "анализ хуков инстаграм", "анализ обложек инстаграм",
+  "reels hook analysis", "анализ обложек рилсов", "cover hook analysis"
 ---
 
-# TikTok Account Hook Analysis (Cover Image OCR)
+# Account Cover Hook Analysis (TikTok + Instagram)
 
 ## When to use
 
-When the user provides a TikTok handle/URL and wants to analyze the **hook text on cover images** (thumbnails) across the account's videos. This reveals which text-based hook formulas the creator uses on their covers and which ones perform best.
+User gives a TikTok or Instagram handle/URL and wants to know which cover/thumbnail
+hook formulas the account uses and which perform best. Covers only (fast, cheap) —
+not full video analysis.
 
-**Key difference from deep-analysis:** This skill analyzes static cover images (fast, cheap) instead of full videos (slow, expensive). It extracts on-screen text from thumbnails, not video scripts.
+**Why Claude reads the covers itself (default):** a cover hook = text × visual.
+OCR-only pipelines lose covers whose hook is visual (memes, reacts, design series,
+embedded screenshots) — verified experimentally: on a 50-reel test, text-only
+clustering dumped 22% of covers into a "no hook" bucket and misread embedded
+screenshots; native reading assigned 100% and found format-level patterns
+(design series, no-face covers, react formats) invisible to OCR.
 
 ## Prerequisites
 
-- ScrapeCreators API key (`SCRAPE_CREATORS_API_KEY` in `.env`)
-- Google API key (`GOOGLE_API_KEY` in `.env`)
-- `TIKTOK_SKILLS_ROOT` env var pointing at your `viral-tiktok-skills` clone (keys live in that repo's `.env`)
+- `SCRAPE_CREATORS_API_KEY` — shell env / `~/.zshenv` / `~/.zshrc` / repo `.env`
+  (via `TIKTOK_SKILLS_ROOT`) / `./.env`
+- Bundled scripts: `scripts/fetch_covers.py`, `scripts/pattern_stats.py`, `scripts/ocr_covers.py`
+- FAST mode only: `GOOGLE_API_KEY` (Gemini) or `XAI_API_KEY` (Grok auto-fallback if Gemini
+  is unavailable, e.g. geo-blocked)
+
+## Mode selection
+
+| Mode | When | Who reads covers | Who clusters |
+|------|------|-----------------|--------------|
+| **NATIVE** (default) | ≤ 80 covers | Claude (Read tool) | Claude |
+| **FAST** | user says «быстро/дёшево/fast», or count > 120 | cheap vision model → cards | Claude |
+| 80–120 covers | prefer NATIVE via subagent fan-out (see Scaling) | subagents | Claude |
+
+Never let the cheap model do pattern discovery — that was the main quality flaw
+of the old pipeline.
 
 ## Workflow
 
-### Step 1: Extract handle
+### Step 1 — Parse input
 
-Parse the TikTok handle from the user's input. Accept formats:
-- `@username`
-- `https://www.tiktok.com/@username`
-- just `username`
+- Platform: `instagram.com/...` or «инста/рилсы/reels» → `instagram`; otherwise `tiktok`.
+- Handle: strip `@`, URL parts.
+- Count: user's number, else **50**.
+- Work dir: `WORK_DIR=<scratchpad>/hook-analysis/<handle>`
 
-### Step 2: Run cover hook analysis
-
-**Default: 100 videos.** If the user explicitly specifies a different number (e.g. "50 видео", "last 30", "200 videos"), use that number instead.
+### Step 2 — Fetch metadata + covers
 
 ```bash
-cd "${TIKTOK_SKILLS_ROOT:?Set TIKTOK_SKILLS_ROOT to your viral-tiktok-skills clone}"
-mkdir -p /tmp/cover-hooks
-npx tsx src/scripts/analyze-cover-hooks.ts HANDLE \
-  --count COUNT --skip 0 --concurrency 10 \
-  --out /tmp/cover-hooks/HANDLE.json \
-  --out-csv /tmp/cover-hooks/HANDLE.csv
+python3 ~/.claude/skills/tiktok-account-hook-analysis/scripts/fetch_covers.py HANDLE \
+  --platform tiktok|instagram --count N --out-dir "$WORK_DIR"
 ```
 
-Where `COUNT` = number requested by user, or **100** if not specified.
+Writes `meta.json` (per-video metrics, index-aligned) and `covers/NN_ID.jpg`
+(HEIC auto-converted). Prints `index | views | date | id` digest.
 
-Flags:
-- `--concurrency N` — parallel OCR workers (default 10). With 100 videos this brings OCR phase from ~12 min to ~75 sec.
-- `--out FILE.json` — write structured report to file (recommended; otherwise JSON goes to stdout).
-- `--out-csv FILE.csv` — write flat per-video CSV (id, date, views, likes, saves, hook_text, pattern_name, virality_rate, link).
-- `--skip N` — useful for paginated re-runs after a failure.
+### Step 3 — Per-cover cards
 
-If neither `--out` nor `--out-csv` given, JSON is printed to stdout (legacy mode). With `--out` flags, stdout stays clean.
+**NATIVE:** Read cover images with the Read tool, ~10 per message, all batches.
+While reading, build a mental card per cover:
 
-After the script finishes, read the JSON file to build the report.
+- `hook_text` — verbatim, original language, **preserve typos** (a repeated typo
+  reveals a reused template), casing, emoji;
+- `visual_format` — talking_head / face_plus_screenshot / designed_promo /
+  meme_reaction / pov_lifestyle / ui_screen_only / diagram_scheme / comparison_grid;
+- `embedded_context` — if the cover contains someone else's content (tweet, article,
+  app UI, viral video, celebrity photo): what and whose. **Text inside an embedded
+  screenshot is NOT the hook** — it's context/proof;
+- `has_creator_face` — face vs no-face covers often split performance;
+- series markers — recurring design template, recurring corner cues
+  (e.g. "Hold for 2x speed"), recurring characters.
 
-The script:
-1. Fetches videos via ScrapeCreators API (paginated)
-2. Downloads each video's cover image
-3. Sends each cover image to Gemini Vision (`gemini-3.1-flash-lite`) to OCR all text
-4. Feeds all extracted hook texts into a SINGLE Gemini text call for pattern discovery
-5. Calculates metrics per pattern
-6. Outputs structured JSON to stdout
+**FAST:**
 
-### Step 3: Present report
-
-Use the JSON output to build the report.
-
-#### 3.1 Overview
-
-| Metric | Value |
-|--------|-------|
-| Total videos analyzed | N |
-| Videos with hook text on cover | N |
-| Videos without text | N |
-| Account median views | N |
-
-#### 3.2 Hook Text Patterns (sorted by virality desc)
-
-**IMPORTANT: A "pattern" requires 3+ videos. Anything with fewer than 3 videos (1-2) is NOT a pattern** — it is statistically unreliable. Do not give 1-2 video groups their own pattern section; only mention them briefly in insights if they show an interesting signal.
-
-**Always show the video count for each pattern** — put it in the pattern header (e.g. `### 🔥 Pattern Name — 13.9x · 4 videos`) so the reader sees how many videos back the pattern.
-
-For each qualifying pattern (3+ videos):
-- Pattern name + emoji indicator (🏆/🔥/⚡/⚠️/📉) + virality rate + **video count** in header
-- Abstract formula with [PLACEHOLDERS]
-- Table: Videos (count) | Median Views | Avg Views | Virality | Median Likes | Median Saves
-- Table with top 3 videos: views, hook text (original language, abbreviated if long), link
-- ⚠️ Flag patterns where avg >> median (one viral outlier inflating averages)
-
-If there is a large "catch-all" / "miscellaneous" bucket, report it separately at the end with a note about what % of content has no clear formula.
-
-#### 3.3 Key Insights
-
-Based on the pattern data, provide analysis:
-- **What works** (virality > 3x): why these patterns outperform, common emotional/structural elements
-- **What doesn't work** (virality < 1x): why these patterns underperform
-- **Repost degradation**: how much do repeated formulas lose on subsequent posts
-- **Serial formats**: does DAY N or numbered series create retention loops
-- **Saves as quality signal**: which patterns get saved vs just viewed
-- **Content strategy observations**: ratio of formulaic vs experimental content
-- Specific hook formulas worth replicating
-- Recommendations for cover text strategy
-
-## How it works
-
-**Step A — Per-cover OCR (Gemini Vision + cover image):**
-Each cover image is downloaded, base64-encoded, and sent to Gemini with this prompt:
-```
-Look at this TikTok video cover image and extract ALL text visible on it.
-Return JSON: { "hookText": "...", "hasText": true/false }
+```bash
+python3 ~/.claude/skills/tiktok-account-hook-analysis/scripts/ocr_covers.py \
+  "$WORK_DIR/meta.json" --out "$WORK_DIR/cards.json" --provider auto
 ```
 
-**Step B — Pattern clustering (Gemini text-only call):**
-All extracted hook texts are fed into a single Gemini text call:
+Then read `cards.json`; manually Read every cover with `ocr_failed: true`, empty
+`hook_text`, or a card that looks inconsistent. Known FAST limitations: cheap models
+silently fix typos and sometimes mislabel visual_format — treat cards as raw material,
+not truth.
+
+### Step 4 — Cluster patterns (Claude, always)
+
+Cluster across **two axes: text formula × visual format**. A pattern is a repeating
+combination worth replicating (e.g. «CAPS "[VERB] X WITH [TOOL]" on a branded dark
+design» or «accusation hook over embedded tweet-proof»). Rules:
+
+- Pattern needs **3+ videos**; 1–2 similar covers → `unassigned` (mention in insights
+  only if the signal is interesting).
+- Every index appears **exactly once** across `patterns[].indexes` + `unassigned`.
+- Formulas with [PLACEHOLDERS]; keep hook examples verbatim.
+
+Write `clusters.json`:
+
+```json
+{
+  "patterns": [
+    {"patternName": "…", "formula": "… [X] …", "visualFormat": "…", "indexes": [0, 7]}
+  ],
+  "unassigned": [3]
+}
 ```
-Identify all recurring hook text PATTERNS across these covers.
-Strip specific details to find underlying templates.
-Assign every video to exactly one pattern.
-Return JSON with patternName, formula, videoIds.
+
+### Step 5 — Deterministic stats
+
+```bash
+python3 ~/.claude/skills/tiktok-account-hook-analysis/scripts/pattern_stats.py \
+  "$WORK_DIR/meta.json" "$WORK_DIR/clusters.json" --out "$WORK_DIR/report.json"
 ```
 
-Videos without text on covers are grouped into a separate "No text on cover" pattern.
+Validation is strict: on missing/duplicate indexes it exits 1 listing them — fix
+`clusters.json` and rerun. Never present stats computed by hand/LLM.
 
-## Output format
+### Step 6 — Report (language: user's, hooks verbatim in original)
 
-- All hook texts quoted in **original language**, never translated
-- Tables for pattern analytics
-- Format large numbers: 1.2M, 45.3K, etc.
-- TikTok links: `https://www.tiktok.com/@HANDLE/video/VIDEO_ID`
-- Concise insights in bullet points
+1. **Overview**: videos analyzed, account median views, covers with/without text,
+   count of no-face covers.
+2. **Patterns** sorted by virality, header per pattern:
+   `### 🔥 Name — 4.0x · 7 videos` (🏆 >5x / 🔥 >3x / ⚡ >1.5x / ⚠️ <1x / 📉 <0.5x).
+   For each: formula, visual format, stats row (median/avg views, virality, median
+   likes/saves, engagement), top-3 videos with links + verbatim hooks, flags from
+   report.json (`outlierWarning` → «⚠️ среднее раздуто одним виралом»,
+   `belowMinimum` → not a real pattern).
+3. **Visual-layer insights** (native mode's edge): face vs no-face performance,
+   design series and their consistency, embedded-proof usage, what the top-1 video's
+   cover does differently.
+4. **Key insights**: what works >3x and why, what underperforms <1x, repost
+   degradation, serial formats, saves as quality signal, 3–5 concrete cover
+   recommendations for the user's own content.
+5. If `unassigned` is large, report it honestly with % — «у аккаунта нет формулы» is
+   itself a finding.
 
-## Cost estimate
+## Scaling (>80 covers)
 
-- ~8-15 ScrapeCreators API calls (pagination for 120+ videos)
-- ~120 Gemini Vision calls (cover image OCR) + 1 text clustering call
-- Runtime: ~3-7 minutes total (much faster than video analysis)
+Fan out `general-purpose` subagents, ~40 covers each: each Reads its covers and
+returns structured cards (index, hook_text, visual_format, embedded_context,
+has_creator_face, series markers). Main context merges cards → Step 4. Clustering
+never happens inside a subagent (needs the full picture).
+
+## Cost & runtime
+
+| | NATIVE 50 | FAST 120 |
+|---|---|---|
+| time | ~5 min | ~2–4 min |
+| cost | ~70–80k tokens of context | pennies (API) + light context |
+| quality | full visual layer | text + rough format labels |
+
+## Notes
+
+- The old pipeline (`src/scripts/analyze-cover-hooks.ts` in this repo, Gemini OCR →
+  Gemini clustering) is legacy: cheap-model clustering silently
+  dropped unassigned videos (28% loss on test) and discarded all visual signal.
+- If Gemini returns «User location is not supported» (VPN exit in an unsupported
+  region), `ocr_covers.py --provider auto` falls back to Grok automatically.

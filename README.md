@@ -5,8 +5,8 @@ Four self-contained [Claude Code](https://claude.com/claude-code) skills for **T
 | Skill | What it does | Needs | Speed / cost |
 |-------|--------------|-------|--------------|
 | **`tiktok-account-short-analysis`** | Fetches all of an account's videos, computes aggregate metrics (total / avg / median views), shows the top 5 with virality & engagement rates, and a short topic read. | ScrapeCreators key | ~30–60s, ~3–8 API calls |
-| **`tiktok-account-hook-analysis`** | OCRs the **hook text on each video's cover** (Gemini Vision), clusters them into repeating **hook patterns**, and reports per-pattern analytics (median/avg views, virality). | ScrapeCreators + Google (Gemini) keys | ~3–7 min, image-only (no full video) |
-| **`carousel-account-patterns`** | Fetches the last N **carousels (photo posts)**, OCRs **every slide**, Claude maps the repeating patterns, then a script computes honest per-pattern stats (peak / avg / save-rate) with top-reference links → a formula-mining report with fill-in-the-blank hooks adapted for **your** product. | ScrapeCreators + Google (Gemini) keys | ~1–2 min for N=50, Python stdlib only |
+| **`tiktok-account-hook-analysis`** (v2) | **Claude reads each video's cover natively** — text AND visual composition — and clusters repeating **hook patterns** across two axes (text formula × visual format), with honest per-pattern analytics and zero silently-dropped videos. Works on **TikTok and Instagram**. Optional FAST mode uses a cheap vision model for the per-cover pass. | ScrapeCreators key (Gemini/xAI key only for FAST mode) | ~5 min native · ~2–4 min FAST |
+| **`carousel-account-patterns`** | Fetches the last N **carousels (photo posts)**, OCRs **every slide**, Claude maps the repeating patterns, then a script computes honest per-pattern stats (peak / avg / save-rate) with top-reference links, and Claude **natively reads the top-reference slides** to ground the visual layer → a formula-mining report with fill-in-the-blank hooks adapted for **your** product. | ScrapeCreators + Gemini key (auto-fallback to xAI/Grok) | ~1–2 min for N=50, Python stdlib only |
 | **`hook-notes-carousel`** | **Generates** batches of the highest-converting minimal carousel format: slide 1 = lifestyle photo with a raw lowercase hook, slide 2 = a pixel-faithful **iOS Notes screenshot** (real value in items 1–3, your product *as a personal habit* in item 4, community CTA in item 5). Reads your project context, proposes texts by 3 proven hook formulas, renders deterministic slides, verifies them. | Pillow + any image generator (or your own photos) for backgrounds | slide render <1s, local & free; backgrounds = your generator's price |
 
 The three research skills only read public TikTok data and summarize it — nothing is posted or modified. `hook-notes-carousel` writes PNG slides into your project folder; publishing is still up to you.
@@ -19,10 +19,10 @@ The three research skills only read public TikTok data and summarize it — noth
 
 ## Prerequisites
 
-- **Node.js ≥ 18.17** — for the two video skills
-- **Python 3.9+** — stdlib only for `carousel-account-patterns`; `pip3 install Pillow` for `hook-notes-carousel`
+- **Node.js ≥ 18.17** — for `tiktok-account-short-analysis` only
+- **Python 3.9+** — stdlib only for `tiktok-account-hook-analysis` and `carousel-account-patterns`; `pip3 install Pillow` for `hook-notes-carousel`
 - **[ScrapeCreators](https://scrapecreators.com) API key** — required for the three research skills
-- **[Google AI Studio](https://aistudio.google.com/apikey) key** — required for `tiktok-account-hook-analysis` and `carousel-account-patterns` (Gemini Vision/OCR)
+- **[Google AI Studio](https://aistudio.google.com/apikey) key** — for `carousel-account-patterns` slide OCR and hook-analysis FAST mode. Optional **[xAI key](https://console.x.ai)** — automatic Grok fallback when Gemini is unavailable (e.g. geo-blocked). Default hook-analysis mode needs **no vision key at all** — Claude reads the covers itself
 - **Any image source for `hook-notes-carousel` slide-1 backgrounds** — an image-gen skill/CLI (Higgsfield, Midjourney, GPT Image, Flux…), stock, or your own photos; the skill is generator-agnostic and needs no API key itself
 - macOS `sips` (built-in) — optional, used by `carousel-account-patterns` to convert HEIC slides TikTok sometimes serves. `hook-notes-carousel` renders best with macOS fonts (Helvetica Neue + Apple Color Emoji) and falls back to DejaVu/Liberation/Segoe on Linux/Windows
 
@@ -76,9 +76,15 @@ export GOOGLE_API_KEY="..."
 npm run short-analysis -- secretherbsnana
 npm run short-analysis -- secretherbsnana --since=2026-01-01   # large accounts
 
-# Hook analysis (cover OCR + pattern clustering)
-npm run hook-analysis -- secretherbsnana --count 100 --concurrency 10 \
-  --out /tmp/hooks.json --out-csv /tmp/hooks.csv
+# Hook analysis v2 — step 1: fetch metadata + covers (TikTok or Instagram)
+python3 ~/.claude/skills/tiktok-account-hook-analysis/scripts/fetch_covers.py username \
+  --platform tiktok --count 50 --out-dir /tmp/hooks_username
+# (Claude reads the covers natively and writes clusters.json) — step 2: honest stats
+python3 ~/.claude/skills/tiktok-account-hook-analysis/scripts/pattern_stats.py \
+  /tmp/hooks_username/meta.json /tmp/hooks_username/clusters.json
+# FAST mode (large accounts): per-cover cards from a cheap vision model instead
+python3 ~/.claude/skills/tiktok-account-hook-analysis/scripts/ocr_covers.py \
+  /tmp/hooks_username/meta.json --out /tmp/hooks_username/cards.json --provider auto
 ```
 
 ```bash
@@ -109,19 +115,19 @@ python3 ~/.claude/skills/hook-notes-carousel/scripts/overlay_hook.py \
 
 - **ScrapeCreators** is the social parser — it fetches the account's videos with metrics, cover URLs, and descriptions.
 - **`quick-stats.ts`** aggregates metrics with a 6h local cache (`~/.cache/tiktok_quick_stats/`) and incremental re-fetch.
-- **`analyze-cover-hooks.ts`** downloads each cover, sends it to **Gemini `gemini-3.1-flash-lite`** for OCR of on-screen text, then runs a single Gemini text call to cluster the hooks into patterns and scores each pattern by virality.
-- **`fetch_and_ocr.py`** (carousel skill) paginates the profile feed, keeps only photo posts, then downloads + OCRs **every slide** in one thread pool (Gemini Flash Lite, key sent via header; image MIME sniffed — TikTok serves webp/jpeg/heic interchangeably). Outputs `carousels_ocr.json` + a ranked `DIGEST.txt`. Claude does the actual pattern discovery from the digest, `aggregate.py` turns the mapping into an honest stats table (n / peak / avg / total / save%), and `download_slides.py` grabs the winning carousel's slides (HEIC→JPEG on macOS).
+- **Hook analysis v2** is three self-contained Python scripts: `fetch_covers.py` pulls the last N videos of a TikTok **or Instagram** account and downloads every cover (HEIC→JPEG); **Claude then reads the covers natively** — verbatim text (typos preserved: a repeated typo reveals a reused template), visual format, embedded screenshots — and clusters the patterns itself; `pattern_stats.py` computes per-pattern analytics deterministically and **refuses to run if any video is missing or double-assigned** (the old pipeline silently dropped up to ~28% of videos). `ocr_covers.py` is the optional FAST path — a cheap vision model (Gemini, auto-fallback Grok) builds per-cover cards, but pattern discovery still belongs to Claude. The legacy TS pipeline (`analyze-cover-hooks.ts`) stays in `src/` for reference.
+- **`fetch_and_ocr.py`** (carousel skill) paginates the profile feed, keeps only photo posts, then downloads + OCRs **every slide** in one thread pool (Gemini Flash Lite with automatic Grok fallback when Gemini is unavailable; key sent via header; image MIME sniffed — TikTok serves webp/jpeg/heic interchangeably). Outputs `carousels_ocr.json` + a ranked `DIGEST.txt`. Claude does the actual pattern discovery from the digest, `aggregate.py` turns the mapping into an honest stats table (n / peak / avg / total / save%) and warns about typo'd or unlabeled ids, and `download_slides.py` grabs the winning carousel's slides (HEIC→JPEG on macOS).
 - **`hook-notes-carousel`** is pure deterministic Pillow — no AI in the render path. `render_notes.py` draws a pixel-faithful iOS Notes screenshot (status bar, "‹ Notes" nav, date header synced to the status-bar clock, smart quotes, color emoji from the native font, a font ladder that shrinks text to fit and exits non-zero if it can't). `overlay_hook.py` puts the hook on the photo (white bold + dark halo), measures the luminance of the exact band where the text sits and applies a gradient scrim only as strong as needed, auto-wraps and auto-shrinks long titles. `batch.py` drives N carousels from one JSON and prints an OK/FAIL manifest. Claude's job is the part scripts can't do: reading your project, writing hooks by the proven formulas, and visually verifying the output.
 
 ## Cost notes
 
 - ScrapeCreators bills per API call (a few calls for short analysis, a bit more pagination for hook analysis; ~5–15 pages for a 50-carousel run).
-- Gemini Vision is billed per image OCR: ~100 covers for a default hook run, ~100–150 slides for a 50-carousel run (Flash Lite — fractions of a cent per image).
+- Native hook-analysis mode spends Claude context (~70–80k tokens per 50 covers) and zero vision-API dollars. FAST mode / carousel OCR bill per image: ~100–150 cheap-model calls per run (fractions of a cent each).
 - `hook-notes-carousel` renders are local and free; the only cost is whatever image generator you use for slide-1 backgrounds (or zero with your own photos).
 
 ## Security
 
-No keys are committed — everything reads from `.env` / environment variables (`SCRAPE_CREATORS_API_KEY`, `GOOGLE_API_KEY`). Keep your `.env` private (it's gitignored).
+No keys are committed — everything reads from `.env` / environment variables (`SCRAPE_CREATORS_API_KEY`, `GOOGLE_API_KEY`, optional `XAI_API_KEY`). Keep your `.env` private (it's gitignored).
 
 ## License
 

@@ -5,22 +5,45 @@ Fetch last N TikTok carousels of an account (direct ScrapeCreators REST, cursor 
 
 Usage:
   python3 fetch_and_ocr.py <handle_or_url> --out <dir> [--limit 50] [--max-pages 15] [--workers 15]
+                           [--provider auto|gemini|grok]
 
 Output files in <dir>:
   carousels_ocr.json  - full dataset (metrics + slide URLs + slide_text[])
   DIGEST.txt          - human-readable, ranked by views (HOOK/BODY per carousel)
 
-Env: SCRAPE_CREATORS_API_KEY, GOOGLE_API_KEY
+Env: SCRAPE_CREATORS_API_KEY + GOOGLE_API_KEY (gemini) / XAI_API_KEY (grok fallback).
+Keys are also searched in ~/.zshenv, ~/.zshrc, the repo .env (via TIKTOK_SKILLS_ROOT) or ./.env.
+--provider auto probes Gemini once and falls back to Grok (e.g. when Gemini is
+geo-blocked: 400 "User location is not supported").
 Only a short summary is printed to stdout - keep context clean.
 """
 import os, sys, json, re, time, base64, argparse, urllib.request, urllib.error, concurrent.futures
 import subprocess, tempfile
 
 SC_BASE = "https://api.scrapecreators.com/v3/tiktok/profile/videos"
-GEMINI_MODEL = "gemini-3.1-flash-lite"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
+GROK_MODEL = os.environ.get("XAI_MODEL", "grok-4.20-0309-non-reasoning")
 OCR_PROMPT = ("Extract ALL text visible in this TikTok carousel slide EXACTLY as written, "
               "preserving line breaks and order (top to bottom). Keep emojis. Do NOT add "
               "commentary, labels, or quotes. If the slide has no text, output exactly: NONE")
+
+ENV_FILES = [os.path.expanduser("~/.zshenv"), os.path.expanduser("~/.zshrc")]
+if os.environ.get("TIKTOK_SKILLS_ROOT"):
+    ENV_FILES.append(os.path.join(os.environ["TIKTOK_SKILLS_ROOT"], ".env"))
+ENV_FILES.append(os.path.join(os.getcwd(), ".env"))
+
+
+def env_key(name):
+    if os.environ.get(name):
+        return os.environ[name]
+    for path in ENV_FILES:
+        if not os.path.exists(path):
+            continue
+        for line in open(path, encoding="utf-8", errors="ignore"):
+            m = re.match(rf'^(?:export\s+)?{name}\s*=\s*"?([^"\s#]+)"?', line.strip())
+            if m:
+                return m.group(1)
+    return None
 
 
 def parse_handle(s):
@@ -118,11 +141,61 @@ def prep_image(data):
     return mime, data
 
 
-def ocr_all(carousels, g_key, workers):
-    """Download + OCR every slide in one threaded pool."""
+def ocr_gemini(mime, img, key):
     # key goes in a header, not the URL, so it can never leak via logged/printed URLs
-    gemini_url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-                  f"{GEMINI_MODEL}:generateContent")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+    body = json.dumps({
+        "contents": [{"parts": [
+            {"inline_data": {"mime_type": mime, "data": base64.b64encode(img).decode()}},
+            {"text": OCR_PROMPT},
+        ]}],
+        "generationConfig": {"temperature": 0},
+    }).encode()
+    resp = http_json(url, headers={"Content-Type": "application/json", "x-goog-api-key": key},
+                     data=body, retries=3)
+    return resp["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+
+def ocr_grok(mime, img, key):
+    body = json.dumps({
+        "model": GROK_MODEL,
+        "messages": [{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64.b64encode(img).decode()}"}},
+            {"type": "text", "text": OCR_PROMPT},
+        ]}],
+        "temperature": 0,
+    }).encode()
+    resp = http_json("https://api.x.ai/v1/chat/completions",
+                     headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
+                     data=body, retries=3)
+    return resp["choices"][0]["message"]["content"].strip()
+
+
+def pick_provider(requested):
+    """Return (name, ocr_fn, key). auto: probe Gemini once, fall back to Grok."""
+    if requested in ("gemini", "auto"):
+        g_key = env_key("GOOGLE_API_KEY")
+        if g_key:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+                http_json(url, headers={"Content-Type": "application/json", "x-goog-api-key": g_key},
+                          data=json.dumps({"contents": [{"parts": [{"text": "hi"}]}]}).encode(),
+                          retries=0)
+                return "gemini", ocr_gemini, g_key
+            except Exception as e:
+                if requested == "gemini":
+                    sys.exit(f"ERROR: Gemini unavailable ({str(e)[:100]})")
+                print(f"Gemini unavailable ({str(e)[:80]}) -> falling back to Grok")
+        elif requested == "gemini":
+            sys.exit("ERROR: GOOGLE_API_KEY not found")
+    x_key = env_key("XAI_API_KEY")
+    if not x_key:
+        sys.exit("ERROR: no usable OCR provider (Gemini unavailable, XAI_API_KEY not found)")
+    return "grok", ocr_grok, x_key
+
+
+def ocr_all(carousels, ocr_fn, key, workers):
+    """Download + OCR every slide in one threaded pool."""
     tasks = [(i, j, url) for i, c in enumerate(carousels) for j, url in enumerate(c["slides"])]
 
     def worker(t):
@@ -134,19 +207,8 @@ def ocr_all(carousels, g_key, workers):
         except Exception as e:
             return (i, j, f"[DL-ERR: {e}]")
         mime, img = prep_image(img)
-        body = json.dumps({
-            "contents": [{"parts": [
-                {"inline_data": {"mime_type": mime,
-                                 "data": base64.b64encode(img).decode()}},
-                {"text": OCR_PROMPT},
-            ]}],
-            "generationConfig": {"temperature": 0},
-        }).encode()
         try:
-            resp = http_json(gemini_url, headers={"Content-Type": "application/json",
-                                                  "x-goog-api-key": g_key},
-                             data=body, retries=3)
-            return (i, j, resp["candidates"][0]["content"]["parts"][0]["text"].strip())
+            return (i, j, ocr_fn(mime, img, key))
         except Exception as e:
             return (i, j, f"[OCR-ERR: {e}]")
 
@@ -196,12 +258,13 @@ def main():
     ap.add_argument("--limit", type=int, default=50)
     ap.add_argument("--max-pages", type=int, default=15)
     ap.add_argument("--workers", type=int, default=15)
+    ap.add_argument("--provider", choices=["auto", "gemini", "grok"], default="auto")
     a = ap.parse_args()
 
-    sc_key = os.environ.get("SCRAPE_CREATORS_API_KEY")
-    g_key = os.environ.get("GOOGLE_API_KEY")
-    if not sc_key or not g_key:
-        sys.exit("ERROR: need SCRAPE_CREATORS_API_KEY and GOOGLE_API_KEY in env")
+    sc_key = env_key("SCRAPE_CREATORS_API_KEY")
+    if not sc_key:
+        sys.exit("ERROR: SCRAPE_CREATORS_API_KEY not found in env or " + ", ".join(ENV_FILES))
+    provider, ocr_fn, ocr_key = pick_provider(a.provider)
 
     handle = parse_handle(a.handle)
     os.makedirs(a.out, exist_ok=True)
@@ -212,10 +275,10 @@ def main():
         sys.exit(f"ERROR: no carousels found for @{handle}")
     if len(carousels) < a.limit:
         print(f"WARNING: only {len(carousels)} carousels available (asked {a.limit})")
-    print(f"fetched {len(carousels)} carousels in {time.time()-t0:.0f}s; OCR starting...")
+    print(f"fetched {len(carousels)} carousels in {time.time()-t0:.0f}s; OCR via {provider}...")
 
     t1 = time.time()
-    n_slides, errs = ocr_all(carousels, g_key, a.workers)
+    n_slides, errs = ocr_all(carousels, ocr_fn, ocr_key, a.workers)
     print(f"OCR: {n_slides} slides, {errs} errors, {time.time()-t1:.0f}s")
 
     json.dump(carousels, open(os.path.join(a.out, "carousels_ocr.json"), "w"),

@@ -7,3 +7,4 @@ dist/
 .cache/
 tmp/
 .DS_Store
+__pycache__/
