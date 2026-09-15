@@ -1,0 +1,4 @@
+interface:
+  display_name: "Social Post Comment Analysis (Viral Camp)"
+  short_description: "TikTok and Instagram audience insights from comments"
+  default_prompt: "Use $social-post-comment-analysis to analyze this post's comments, save CSV, and propose experiments for my product."

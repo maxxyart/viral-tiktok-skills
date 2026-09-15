@@ -1,15 +1,16 @@
 # Viral TikTok Skills for Claude Code
 
-Four self-contained [Claude Code](https://claude.com/claude-code) skills for **TikTok growth**: three for fast, cheap account research + one that turns the mined formulas into **ready-to-post carousels**. No database, no heavy setup.
+Five self-contained skills for **TikTok and Instagram research and content**. Use them to study accounts, mine cover and carousel patterns, analyze audience comments, and create ready-to-post carousels. No database required. The new Viral Camp comment-analysis skill works in both [Claude Code](https://claude.com/claude-code) and Codex.
 
 | Skill | What it does | Needs | Speed / cost |
 |-------|--------------|-------|--------------|
+| **[`social-post-comment-analysis`](skills/social-post-comment-analysis/)** (Viral Camp) | Bounded TikTok/Instagram comment collection, safe CSV, semantic audience themes, separate root/reply statistics and product/campaign experiments. Reuses saved data and stops on request. | Python 3.9+ standard library; ScrapeCreators key for collection | Default: target 300 roots, ≤20 API attempts, ≤120s collection; offline analysis has no API cost |
 | **`tiktok-account-short-analysis`** | Fetches all of an account's videos, computes aggregate metrics (total / avg / median views), shows the top 5 with virality & engagement rates, and a short topic read. | ScrapeCreators key | ~30–60s, ~3–8 API calls |
 | **`tiktok-account-hook-analysis`** (v2) | **Claude reads each video's cover natively** — text AND visual composition — and clusters repeating **hook patterns** across two axes (text formula × visual format), with honest per-pattern analytics and zero silently-dropped videos. Works on **TikTok and Instagram**. Optional FAST mode uses a cheap vision model for the per-cover pass. | ScrapeCreators key (Gemini/xAI key only for FAST mode) | ~5 min native · ~2–4 min FAST |
 | **`carousel-account-patterns`** | Fetches the last N **carousels (photo posts)**, OCRs **every slide**, Claude maps the repeating patterns, then a script computes honest per-pattern stats (peak / avg / save-rate) with top-reference links, and Claude **natively reads the top-reference slides** to ground the visual layer → a formula-mining report with fill-in-the-blank hooks adapted for **your** product. | ScrapeCreators + Gemini key (auto-fallback to xAI/Grok) | ~1–2 min for N=50, Python stdlib only |
 | **`hook-notes-carousel`** | **Generates** batches of the highest-converting minimal carousel format: slide 1 = lifestyle photo with a raw lowercase hook, slide 2 = a pixel-faithful **iOS Notes screenshot** (real value in items 1–3, your product *as a personal habit* in item 4, community CTA in item 5). Reads your project context, proposes texts by 3 proven hook formulas, renders deterministic slides, verifies them. | Pillow + any image generator (or your own photos) for backgrounds | slide render <1s, local & free; backgrounds = your generator's price |
 
-The three research skills only read public TikTok data and summarize it — nothing is posted or modified. `hook-notes-carousel` writes PNG slides into your project folder; publishing is still up to you.
+The research skills read public social data and write local analysis files. They do not post comments or message users. `hook-notes-carousel` writes PNG slides into your project folder; publishing is still up to you.
 
 > **The loop:** mine an account's winning formulas with `carousel-account-patterns` → hand the report to `hook-notes-carousel` → get a batch of on-formula carousels for your product.
 
@@ -20,8 +21,8 @@ The three research skills only read public TikTok data and summarize it — noth
 ## Prerequisites
 
 - **Node.js ≥ 18.17** — for `tiktok-account-short-analysis` only
-- **Python 3.9+** — stdlib only for `tiktok-account-hook-analysis` and `carousel-account-patterns`; `pip3 install Pillow` for `hook-notes-carousel`
-- **[ScrapeCreators](https://scrapecreators.com) API key** — required for the three research skills
+- **Python 3.9+** — stdlib only for comment analysis, `tiktok-account-hook-analysis` and `carousel-account-patterns`; `pip3 install Pillow` for `hook-notes-carousel`
+- **[ScrapeCreators](https://scrapecreators.com) API key** — required for live research collection; offline comment export/analysis needs no key
 - **[Google AI Studio](https://aistudio.google.com/apikey) key** — for `carousel-account-patterns` slide OCR and hook-analysis FAST mode. Optional **[xAI key](https://console.x.ai)** — automatic Grok fallback when Gemini is unavailable (e.g. geo-blocked). Default hook-analysis mode needs **no vision key at all** — Claude reads the covers itself
 - **Any image source for `hook-notes-carousel` slide-1 backgrounds** — an image-gen skill/CLI (Higgsfield, Midjourney, GPT Image, Flux…), stock, or your own photos; the skill is generator-agnostic and needs no API key itself
 - macOS `sips` (built-in) — optional, used by `carousel-account-patterns` to convert HEIC slides TikTok sometimes serves. `hook-notes-carousel` renders best with macOS fonts (Helvetica Neue + Apple Color Emoji) and falls back to DejaVu/Liberation/Segoe on Linux/Windows
@@ -32,7 +33,7 @@ No database is required.
 
 ```bash
 # 1. Clone
-git clone https://github.com/<you>/viral-tiktok-skills.git
+git clone https://github.com/maxxyart/viral-tiktok-skills.git
 cd viral-tiktok-skills
 
 # 2. Install deps
@@ -50,9 +51,15 @@ cp -R skills/tiktok-account-short-analysis ~/.claude/skills/
 cp -R skills/tiktok-account-hook-analysis ~/.claude/skills/
 cp -R skills/carousel-account-patterns ~/.claude/skills/
 cp -R skills/hook-notes-carousel ~/.claude/skills/
+cp -R skills/social-post-comment-analysis ~/.claude/skills/
 ```
 
-The two Node `SKILL.md` files `cd "$TIKTOK_SKILLS_ROOT"` before running, so the repo's `.env` (your keys) is picked up automatically wherever you invoke the skill from.
+For Codex, copy `skills/social-post-comment-analysis` into `~/.codex/skills/` instead.
+The comment skill is self-contained and does not need npm dependencies or
+`TIKTOK_SKILLS_ROOT`. Set `SCRAPE_CREATORS_API_KEY` in the environment, or pass an
+explicit `--env-file`. `SCRAPECREATORS_API_KEY` is also supported.
+
+The Node short-analysis entrypoint uses `TIKTOK_SKILLS_ROOT` to locate the repo and its `.env`.
 
 The carousel skill is **self-contained Python** (its scripts live inside the skill folder) and reads the keys from your shell environment — export them in `~/.zshrc` / `~/.bashrc`:
 
@@ -68,6 +75,39 @@ export GOOGLE_API_KEY="..."
 > "сделай короткий анализ тикток @secretherbsnana"
 > "analyze the cover hooks of @username"
 > "generate a batch of hook+notes carousels for my project"
+> "проанализируй комментарии этого рилса через ScrapeCreators, сохрани CSV и предложи тесты для моего продукта"
+
+### Social post comment analysis (Viral Camp)
+
+```bash
+# Either a canonical TikTok video/photo URL or Instagram reel/post URL:
+python3 skills/social-post-comment-analysis/scripts/comments.py fetch 'POST_URL' \
+  --out /tmp/post-comments --limit 300 --max-calls 20 --max-seconds 120
+
+# Rebuild from the saved cache without making network calls:
+python3 skills/social-post-comment-analysis/scripts/comments.py export --out /tmp/post-comments
+
+# The agent reads reading.jsonl and writes semantic labels.json using SKILL.md:
+python3 skills/social-post-comment-analysis/scripts/comments.py analyze \
+  --out /tmp/post-comments --labels /tmp/post-comments/labels.json
+
+# Offline regression tests (synthetic data only):
+python3 -m unittest discover -s skills/social-post-comment-analysis/tests -v
+```
+
+Collection saves raw pages, a timestamped request manifest, lossless `records.json`,
+`reading.jsonl`, and Excel-safe `comments.csv`. Analysis validates every assigned ID
+and writes `analysis.json`; the agent writes the evidence-backed `report.md`.
+The final response page is preserved, so the row target may be exceeded by one page.
+Replies are opt-in per parent (`--reply-id`); Instagram's bulk replies option is
+deliberately unused because its documented per-page cost is substantially higher.
+API attempt limits are not a guaranteed credit price; the manifest tracks returned
+charges and unknown-charge attempts. See the [skill instructions](skills/social-post-comment-analysis/SKILL.md)
+and [platform contracts](skills/social-post-comment-analysis/references/platforms.md).
+
+Unlike account-growth metrics, comment themes describe a nonrandom audience sample.
+The report keeps top-level comments, replies, creators and unreviewed rows explicit;
+likes are amplification, not a count of buyers.
 
 **Or run the scripts directly:**
 
@@ -113,6 +153,7 @@ python3 ~/.claude/skills/hook-notes-carousel/scripts/overlay_hook.py \
 
 ## How it works
 
+- **Comment analysis** uses a bounded, interruptible ScrapeCreators REST collector for both platforms. The agent reads comments in context and supplies semantic labels; Python validates label coverage and computes topic frequencies. Reversible CSV escaping and namespaced IDs protect text and long identifiers. No fixed keyword taxonomy or external LLM API is used.
 - **ScrapeCreators** is the social parser — it fetches the account's videos with metrics, cover URLs, and descriptions.
 - **`quick-stats.ts`** aggregates metrics with a 6h local cache (`~/.cache/tiktok_quick_stats/`) and incremental re-fetch.
 - **Hook analysis v2** is three self-contained Python scripts: `fetch_covers.py` pulls the last N videos of a TikTok **or Instagram** account and downloads every cover (HEIC→JPEG); **Claude then reads the covers natively** — verbatim text (typos preserved: a repeated typo reveals a reused template), visual format, embedded screenshots — and clusters the patterns itself; `pattern_stats.py` computes per-pattern analytics deterministically and **refuses to run if any video is missing or double-assigned** (the old pipeline silently dropped up to ~28% of videos). `ocr_covers.py` is the optional FAST path — a cheap vision model (Gemini, auto-fallback Grok) builds per-cover cards, but pattern discovery still belongs to Claude. The legacy TS pipeline (`analyze-cover-hooks.ts`) stays in `src/` for reference.
