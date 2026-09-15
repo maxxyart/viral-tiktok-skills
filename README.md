@@ -1,13 +1,14 @@
 # Viral Camp — Social Account Skills
 
-Research **Instagram Reels and TikTok videos** with ScrapeCreators, turn observed hooks into referenced formulas, and adapt them to your product. Two updated, independently installable skills for Claude Code, Codex and other SKILL.md-compatible agents. The repository URL remains `maxxyart/viral-tiktok-skills` for existing users.
+Research **Instagram Reels and TikTok videos** with ScrapeCreators, turn observed hooks into referenced formulas, and adapt them to your product. Five skills cover account research, hook research, audience comments and carousel production. The two updated account skills are independently installable in Claude Code, Codex and other SKILL.md-compatible agents. The repository URL remains `maxxyart/viral-tiktok-skills` for existing users.
 
 | Skill | Outcome |
 |---|---|
 | **[Social Account Short Analysis (Viral Camp)](skills/social-account-short-analysis/SKILL.md)** | CSV + concise HTML: views and comments totals/means/medians, comment rates, publication-month cohorts, top five with virality multiples, topic and offer. |
 | **[Social Account Hook Analysis (Viral Camp)](skills/social-account-hook-analysis/SKILL.md)** | Latest 60 videos by default; covers and sheets of 20; exact source-language quotes; text formulas × visuals × character roles; linked cover references; product recommendations and a controlled test plan. |
+| **[Social Post Comment Analysis (Viral Camp)](skills/social-post-comment-analysis/SKILL.md)** | Bounded Instagram/TikTok comment collection, CSV, semantic audience themes, root/reply statistics and product experiments. |
 
-Both honor an explicit sample size or all-available scope. Missing data remains missing; partial collection is labeled. A cover-only analysis does not pretend to have inspected the opening video. Every displayed hook formula links to 1–2 specific source posts.
+Both account-analysis skills honor an explicit sample size or all-available scope. Missing data remains missing; partial collection is labeled. A cover-only analysis does not pretend to have inspected the opening video. Every displayed hook formula links to 1–2 specific source posts.
 
 ## Install
 
@@ -29,6 +30,8 @@ cp -R skills/social-account-hook-analysis "$HOME/.codex/skills/"
 ```
 
 Each folder contains its runtime scripts and references. It needs neither the repository checkout nor `TIKTOK_SKILLS_ROOT` after installation. Review existing installed folders before replacing an older copy.
+
+To install the independently added comment skill, copy `skills/social-post-comment-analysis` to the same agent skills directory. It needs Python 3.9+ and no npm dependencies. Set `SCRAPE_CREATORS_API_KEY` / `SCRAPECREATORS_API_KEY` or use its explicit `--env-file` option.
 
 ### Requirements
 
@@ -98,6 +101,39 @@ Install the new folders and retire the two old installed skills to avoid duplica
 
 The [upgrade audit](docs/social-analysis-audit.md) explains the session and repository errors corrected: pagination, zero-versus-missing counters, stale caches, quote fidelity, cover/footage confusion, causal overclaims, reference quality and portable reports.
 
+## Social post comment analysis (Viral Camp)
+
+```bash
+# Either a canonical TikTok video/photo URL or Instagram reel/post URL:
+python3 skills/social-post-comment-analysis/scripts/comments.py fetch 'POST_URL' \
+  --out /tmp/post-comments --limit 300 --max-calls 20 --max-seconds 120
+
+# Rebuild from the saved cache without making network calls:
+python3 skills/social-post-comment-analysis/scripts/comments.py export --out /tmp/post-comments
+
+# The agent reads reading.jsonl and writes semantic labels.json using SKILL.md:
+python3 skills/social-post-comment-analysis/scripts/comments.py analyze \
+  --out /tmp/post-comments --labels /tmp/post-comments/labels.json
+
+# Offline regression tests (synthetic data only):
+python3 -m unittest discover -s skills/social-post-comment-analysis/tests -v
+```
+
+Collection saves raw pages, a timestamped request manifest, lossless `records.json`,
+`reading.jsonl`, and Excel-safe `comments.csv`. Analysis validates every assigned ID
+and writes `analysis.json`; the agent writes the evidence-backed `report.md`.
+The final response page is preserved, so the row target may be exceeded by one page.
+Replies are opt-in per parent (`--reply-id`); Instagram's bulk replies option is
+deliberately unused because its documented per-page cost is substantially higher.
+API attempt limits are not a guaranteed credit price; the manifest tracks returned
+charges and unknown-charge attempts. See the [skill instructions](skills/social-post-comment-analysis/SKILL.md)
+and [platform contracts](skills/social-post-comment-analysis/references/platforms.md).
+
+Unlike account-growth metrics, comment themes describe a nonrandom audience sample.
+The report keeps top-level comments, replies, creators and unreviewed rows explicit;
+likes are amplification, not a count of buyers.
+
+
 ## Existing carousel workflows
 
 These two skills remain unchanged:
@@ -118,7 +154,7 @@ python3 -m unittest discover -s tests -v
 python3 tools/package_social_skills.py
 ```
 
-The packager creates two clean ZIPs in `dist/`. A [ready GitHub Actions workflow](docs/github-actions/social-skills.yml) tests Python 3.10/3.13 on Linux and Windows and uploads skill archives. To enable it, place it at `.github/workflows/social-skills.yml` using credentials with workflow-write access. It is supplied as a template in this release; CI is not automatically enabled. Tests use synthetic fixtures; API keys, account dumps and creator images are not included. For legacy Node development only: `npm ci && npm run typecheck`.
+The packager creates two clean ZIPs in `dist/`. A [ready GitHub Actions workflow](docs/github-actions/social-skills.yml) tests Python 3.10/3.13 on Linux and Windows and uploads skill archives. To enable it, place it at `.github/workflows/social-skills.yml` using credentials with workflow-write access. It is supplied as a template in this release; CI for the two account skills is not automatically enabled; the independently added comment-analysis workflow remains active. Tests use synthetic fixtures; API keys, account dumps and creator images are not included. For legacy Node development only: `npm ci && npm run typecheck`.
 
 ## License
 
