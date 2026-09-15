@@ -1,15 +1,19 @@
 {
   "name": "viral-tiktok-skills",
-  "version": "1.0.0",
-  "description": "Two Claude Code skills for fast, cheap TikTok account research: aggregate stats and cover-hook OCR pattern analysis (ScrapeCreators + Gemini).",
+  "version": "2.0.0",
+  "description": "Viral Camp skills for Instagram and TikTok account metrics, visual hook research, and carousel workflows.",
   "type": "module",
   "license": "MIT",
   "engines": {
     "node": ">=18.17"
   },
   "scripts": {
-    "short-analysis": "tsx src/scripts/quick-stats.ts",
-    "hook-analysis": "tsx src/scripts/analyze-cover-hooks.ts",
+    "social:collect": "python3 src/social/social.py collect",
+    "social:analyze": "python3 src/social/social.py analyze",
+    "test:social": "python3 -m unittest discover -s tests -v",
+    "package:skills": "python3 tools/package_social_skills.py",
+    "legacy:short-analysis": "tsx src/scripts/quick-stats.ts",
+    "legacy:hook-analysis": "tsx src/scripts/analyze-cover-hooks.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Social Account Short Analysis (Viral Camp)"
+  short_description: "Instagram and TikTok metrics, trends, and top videos"
+  default_prompt: "Use $social-account-short-analysis to analyze this Instagram or TikTok account and deliver CSV metrics plus a concise HTML report."

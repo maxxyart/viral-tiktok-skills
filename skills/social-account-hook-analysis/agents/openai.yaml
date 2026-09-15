@@ -1,0 +1,4 @@
+interface:
+  display_name: "Social Account Hook Analysis (Viral Camp)"
+  short_description: "Instagram and TikTok hooks, covers, and formula patterns"
+  default_prompt: "Use $social-account-hook-analysis to study the latest 60 videos of this account, compare text formulas with visuals, and deliver a referenced HTML report."
