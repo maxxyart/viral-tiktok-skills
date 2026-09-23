@@ -5,7 +5,7 @@ Research **Instagram Reels and TikTok videos** with ScrapeCreators, turn observe
 | Skill | Outcome |
 |---|---|
 | **[Social Account Short Analysis (Viral Camp)](skills/social-account-short-analysis/SKILL.md)** | CSV + concise HTML: views and comments totals/means/medians, comment rates, publication-month cohorts, top five with virality multiples, topic and offer. |
-| **[Social Account Hook Analysis (Viral Camp)](skills/social-account-hook-analysis/SKILL.md)** | Latest 60 videos by default; covers and sheets of 20; exact source-language quotes; text formulas × visuals × character roles; linked cover references; product recommendations and a controlled test plan. |
+| **[Social Account Hook Analysis (Viral Camp)](skills/social-account-hook-analysis/SKILL.md)** | Latest 60 videos by default; covers and sheets of 20; original-language hooks; text formulas × visuals × character roles; interactive local HTML with linked evidence, filters and a controlled test plan. |
 | **[Social Post Comment Analysis (Viral Camp)](skills/social-post-comment-analysis/SKILL.md)** | Bounded Instagram/TikTok comment collection, CSV, semantic audience themes, root/reply statistics and product experiments. |
 
 Both account-analysis skills honor an explicit sample size or all-available scope. Missing data remains missing; partial collection is labeled. A cover-only analysis does not pretend to have inspected the opening video. Every displayed hook formula links to 1–2 specific source posts.
@@ -74,15 +74,15 @@ python3 src/social/social.py analyze --out runs/instagram-ACCOUNT \
   --cards runs/instagram-ACCOUNT/cards.json
 
 # Agent writes grounded insights.json; the renderer does not invent findings
-python3 src/social/report.py --out runs/instagram-ACCOUNT \
+python3 skills/social-account-hook-analysis/scripts/hook_report.py --out runs/instagram-ACCOUNT \
   --insights runs/instagram-ACCOUNT/insights.json --lang ru
 ```
 
-`--max-pages` defaults to 100. A cap or collection failure returns exit code **2** with partial artifacts; it does not mean all videos were collected. The agent must inspect `snapshot.json`. The feed helper supports latest-N and all-available scope; date-range requests require an ordered/exhaustive capture, filtering and recalculating the cohort as described in the skill. `--lang` labels the HTML document; narrative language comes from the agent's insights, while table headings use English by default.
+`--max-pages` defaults to 100. A cap or collection failure returns exit code **2** with partial artifacts; it does not mean all videos were collected. The agent must inspect `snapshot.json`. The feed helper supports latest-N and all-available scope; date-range requests require an ordered/exhaustive capture, filtering and recalculating the cohort as described in the skill. `--lang ru|en` selects the hook report's main headings and navigation; standard metric labels remain in English, and narrative language comes from the agent's insights. The shared `src/social/report.py` remains the concise renderer for the short-analysis skill.
 
 ## Artifacts and metrics
 
-- `report.html`: portable report with embedded covers and contact sheets.
+- `report.html`: portable, self-contained hook report with embedded covers, evidence map, linked examples and searchable catalog.
 - `videos.csv`, `months.csv`: exact selected cohort and publication-month calculations.
 - `analysis.json`: reproducible metrics and hook patterns; `cards.json`: agent's visual annotations.
 - `snapshot.json`, `raw/`, `videos.json`, `fetched-videos.json`: provenance and auditable scope.

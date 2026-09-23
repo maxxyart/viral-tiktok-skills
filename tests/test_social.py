@@ -6,9 +6,11 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src/social"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "skills/social-account-hook-analysis/scripts"))
 from metrics import analyze, distribution, enrich, summarize
 from social import collect, normalize, page_data, parse_account, timestamp, csv_cell
 from report import render
+from hook_report import render as render_hook
 try:
     from PIL import Image
 except ImportError:
@@ -88,7 +90,9 @@ class CollectionTests(unittest.TestCase):
     def test_instagram_trimmed_and_missing_date(self):
         out, snap = self.run_feed([{"items": [{"pk": "123", "code": "abc", "play_count": 0}], "paging_info": {"more_available": False}}], platform="instagram", count=1)
         self.assertFalse(snap["latest_order_verified"])
-        self.assertIsNone(json.loads((out / "videos.json").read_text(encoding="utf-8"))[0]["published_at_utc"])
+        row = json.loads((out / "videos.json").read_text(encoding="utf-8"))[0]
+        self.assertIsNone(row["published_at_utc"])
+        self.assertEqual(row["id"], "abc")  # Numeric Instagram IDs may be rounded by a JSON transport.
 
     def test_timestamp_and_csv_safety(self):
         self.assertIsNone(timestamp("bad"))
@@ -128,6 +132,22 @@ class MetricTests(unittest.TestCase):
 
 class ReportTests(unittest.TestCase):
     run_feed = CollectionTests.run_feed
+
+    def test_hook_report_is_local_and_validates_source_ids(self):
+        from social import export
+        out, _ = self.run_feed([{"aweme_list": [tt(1)], "has_more": 0}], count=1)
+        export(out)
+        insights = {"summary": [{"title": "Observed", "text": "<script>alert(1)</script>", "reference_ids": ["1"]}]}
+        render_hook(out, insights, "ru")
+        page = (out / "report.html").read_text(encoding="utf-8")
+        self.assertIn('id="catalog"', page)
+        self.assertIn('id="catalog-grid"', page)
+        self.assertIn('id="patterns"', page)
+        self.assertIn("&lt;script&gt;", page)
+        self.assertNotIn("<script>alert", page)
+        insights["summary"][0]["reference_ids"] = ["foreign"]
+        with self.assertRaises(ValueError):
+            render_hook(out, insights, "ru")
 
     def test_html_escapes_untrusted_text_and_validates_refs(self):
         out, _ = self.run_feed([{"aweme_list": [tt(1)], "has_more": 0}], count=1)

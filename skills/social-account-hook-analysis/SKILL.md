@@ -1,6 +1,6 @@
 ---
 name: social-account-hook-analysis
-description: Analyze Instagram Reels or TikTok hooks using ScrapeCreators and visual inspection. Study the latest 60 videos by default, download covers, build sheets of 20, transcribe original-language hooks, compare text formulas × visual techniques × character roles, and deliver a referenced HTML report with product recommendations.
+description: Analyze Instagram Reels or TikTok hooks using ScrapeCreators and visual inspection. Study the latest 60 videos by default, annotate original-language cover hooks, compare text formulas × visuals × character roles, and deliver an interactive, self-contained local HTML report with source evidence and test ideas.
 ---
 
 # Social Account Hook Analysis (Viral Camp)
@@ -53,7 +53,7 @@ This rejects missing, duplicate or extra card IDs and recomputes all metrics fro
 
 ## 4. Explain and adapt
 
-Read [references/reporting.md](references/reporting.md). Build the report in the user's language, while keeping **formulas and direct quotes in the language of the reference**. Every displayed formula gets **1–2 specific source post links** and local cover references. A translation or product adaptation is labeled separately from a quote.
+Read [references/reporting.md](references/reporting.md) and [references/local-html.md](references/local-html.md). Build the report in the user's language, while keeping **formulas and direct quotes in the language of the reference**. Every displayed formula gets **1–2 specific source post links** and local cover references. A translation or product adaptation is labeled separately from a quote.
 
 Include:
 
@@ -62,14 +62,14 @@ Include:
 3. Text-only, visual-only and cross-axis comparisons. Say “associated with higher views in this sample”, not “caused growth”. Call out correlated variables: this account may only use one text formula with one visual.
 4. Contradicting examples, repeated-hook dispersion, outlier concentration, and publication-age differences. Calendar snapshot comparisons cannot establish saturation or repost decay.
 5. Account topic, observed product and CTA. No assumption that comments mean leads, sales, automated DMs or positive sentiment.
-6. Three priorities for the user's product, each tied to source evidence and a feasible production change. Propose a small test matrix varying one axis at a time, with evaluation at comparable post age. Do not carry source performance promises into a new product.
+6. Three test priorities tied to source evidence and feasible production changes. Adapt them to the user's product when its audience, offer and goal are known; otherwise make them reusable for an unspecified product. Propose a small test matrix varying one axis at a time, with evaluation at comparable post age. Do not carry source performance promises into a new product.
 
 ## 5. Deliver and retain
 
 ```bash
-python3 <skill-dir>/scripts/report.py --out <run-dir> --insights <run-dir>/insights.json --lang ru
+python3 <skill-dir>/scripts/hook_report.py --out <run-dir> --insights <run-dir>/insights.json --lang ru
 ```
 
-Deliver `report.html` (embedded cover assets), `videos.csv` including annotations, `months.csv`, `cards.json`, `analysis.json`, `snapshot.json`, original covers and sheets. Keep raw responses for audit. Visually inspect the report where permitted; don't label parser/link checks as a visual review or circumvent a preview block.
+Deliver `report.html` as a single local file with embedded cover assets, an executive summary, linked video map, group comparisons, source-backed findings, and a searchable/sortable catalog. Also keep `videos.csv` including annotations, `months.csv`, `cards.json`, `analysis.json`, `snapshot.json`, original covers and sheets, and raw responses for audit. Visually inspect the report where permitted; don't label parser/link checks as a visual review or circumvent a preview block.
 
 When asked to save formulas, write a project-local Markdown library with source URLs, exact source quote, generalized formula, adaptations, evidence strength, visual recipe and date. Link it from project documentation when appropriate; saving a file does not guarantee memory in future unrelated tasks.

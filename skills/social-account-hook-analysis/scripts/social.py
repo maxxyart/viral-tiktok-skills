@@ -116,8 +116,9 @@ def normalize(item, platform, handle, fetched_at, page):
     if platform == "instagram":
         if m.get("media_type") in (1, 8) or m.get("product_type") == "carousel_container":
             return None
-        ident = first(m.get("pk"), m.get("id"), m.get("code"))
         code = m.get("code")
+        # Shortcodes survive JSON transports that round Instagram's >53-bit numeric IDs.
+        ident = first(code, m.get("pk"), m.get("id"))
         fields = ["play_count", "ig_play_count", "video_play_count", "video_view_count"]
         view_field = next((k for k in fields if m.get(k) is not None), None)
         metrics = {"views": m.get(view_field) if view_field else None, "likes": m.get("like_count"), "comments": m.get("comment_count"), "shares": m.get("reshare_count"), "saves": m.get("save_count")}
