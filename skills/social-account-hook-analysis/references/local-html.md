@@ -9,7 +9,9 @@ The format borrows the useful reading sequence of a deep research report while s
 3. Linked map of view multiple × comment rate, then top-five cover cards.
 4. Expandable comparisons for text formula, visual format, character role and text × visual. Keep `n`, median, mean, comment rate, outlier concentration and peak/typical cover examples together.
 5. Authored explanations: recurring formulas, counterexamples, what the account promotes, and a small test plan. Separate observed quotes, generalized formulas and proposed adaptations.
-6. Publication-month table, searchable/sortable catalog of every selected video, and collection/method limits.
+6. Publication-month table, searchable/sortable **row table** of every selected video, and collection/method limits. The video table keeps cover, original-language hook, views, view multiple, comment rate, duration, source link and labels together. Clickable headers sort metrics; filters and search work across the whole cohort.
+
+When the user requests audio transcription, obtain it from actual audio rather than captions or a cover. Save `transcripts.json` as an array keyed by the selected video IDs, with `status`, original-language `transcript` and `opening_0_3s`. Transcribe the first three seconds from a separately clipped audio segment; a whole-clip ASR response is not reliable evidence for exact opening timing. The renderer adds both transcript fields to the row table, and its search includes them. Preserve `no_speech`, `uncertain` and errors as separate states; do not fabricate speech.
 
 Use the bundled `scripts/hook_report.py` after `social.py analyze`. Its `--lang ru|en` controls the main section headings and navigation; standard metric labels remain in English. Author narrative in the user's language. The script renders the data but does not invent qualitative conclusions.
 

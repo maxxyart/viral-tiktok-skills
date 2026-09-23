@@ -94,6 +94,14 @@ class CollectionTests(unittest.TestCase):
         self.assertIsNone(row["published_at_utc"])
         self.assertEqual(row["id"], "abc")  # Numeric Instagram IDs may be rounded by a JSON transport.
 
+    def test_tiktok_prefers_jpeg_cover_when_heic_is_first(self):
+        row = normalize(tt("1", video={"duration": 1000, "origin_cover": {"url_list": ["https://cdn.test/a.heic?sig=1", "https://cdn.test/a.jpeg?sig=2"]}}), "tiktok", "demo", "snapshot", 1)
+        self.assertEqual(row["cover_url"], "https://cdn.test/a.jpeg?sig=2")
+        row = normalize(tt("2", video={"duration": 1000, "origin_cover": {"url_list": ["https://cdn.test/a.heic?sig=1"]}, "cover": {"url_list": ["https://cdn.test/b.jpeg?sig=2"]}}), "tiktok", "demo", "snapshot", 1)
+        self.assertEqual(row["cover_url"], "https://cdn.test/b.jpeg?sig=2")
+        row = normalize(tt("3", video={"duration": 1000, "origin_cover": {"url_list": ["https://cdn.test/a.heic", "https://cdn.test/a.jpg"]}}), "tiktok", "demo", "snapshot", 1)
+        self.assertEqual(row["cover_url"], "https://cdn.test/a.jpg")
+
     def test_timestamp_and_csv_safety(self):
         self.assertIsNone(timestamp("bad"))
         self.assertEqual(timestamp(1767225600000), "2026-01-01T00:00:00Z")
@@ -137,17 +145,23 @@ class ReportTests(unittest.TestCase):
         from social import export
         out, _ = self.run_feed([{"aweme_list": [tt(1)], "has_more": 0}], count=1)
         export(out)
+        (out / "transcripts.json").write_text(json.dumps([{"id": "1", "status": "speech", "language": "English", "transcript": "A complete audio transcript.", "opening_0_3s": "A complete"}]), encoding="utf-8")
         insights = {"summary": [{"title": "Observed", "text": "<script>alert(1)</script>", "reference_ids": ["1"]}]}
         render_hook(out, insights, "ru")
         page = (out / "report.html").read_text(encoding="utf-8")
         self.assertIn('id="catalog"', page)
         self.assertIn('id="catalog-grid"', page)
+        self.assertIn('id="catalog-table"', page)
+        self.assertIn("A complete audio transcript.", page)
         self.assertIn('id="patterns"', page)
         self.assertIn("&lt;script&gt;", page)
         self.assertNotIn("<script>alert", page)
         insights["summary"][0]["reference_ids"] = ["foreign"]
         with self.assertRaises(ValueError):
             render_hook(out, insights, "ru")
+        (out / "transcripts.json").write_text(json.dumps([{"id": "foreign", "transcript": "No match"}]), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            render_hook(out, None, "ru")
 
     def test_html_escapes_untrusted_text_and_validates_refs(self):
         out, _ = self.run_feed([{"aweme_list": [tt(1)], "has_more": 0}], count=1)

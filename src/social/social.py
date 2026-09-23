@@ -138,12 +138,17 @@ def normalize(item, platform, handle, fetched_at, page):
         view_field = "statistics.play_count" if st.get("play_count") is not None else None
         metrics = {"views": st.get("play_count"), "likes": st.get("digg_count"), "comments": st.get("comment_count"), "shares": st.get("share_count"), "saves": st.get("collect_count")}
         published, caption = timestamp(m.get("create_time")), m.get("desc")
-        cover = None
+        cover, heic_fallback = None, None
         for key in ("origin_cover", "cover_large", "cover", "dynamic_cover"):
             values = (video.get(key) or {}).get("url_list") or []
             if values:
-                cover = values[0]
-                break
+                # TikTok often lists HEIC first; a later cover type may offer
+                # JPEG even when the preferred origin cover does not.
+                heic_fallback = heic_fallback or values[0]
+                cover = next((value for value in values if urlparse(value).path.lower().endswith((".jpeg", ".jpg", ".png", ".webp"))), None)
+                if cover:
+                    break
+        cover = cover or heic_fallback
         url = f"https://www.tiktok.com/@{handle}/video/{ident}" if ident else None
         duration = (video["duration"] / 1000) if isinstance(video.get("duration"), (int, float)) else None
         pinned = bool(m.get("is_top") or m.get("is_pinned"))
