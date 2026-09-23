@@ -1,6 +1,7 @@
 """Offline behavioral tests: no keys, no live API credits, no creator media."""
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ from metrics import analyze, distribution, enrich, summarize
 from social import collect, normalize, page_data, parse_account, timestamp, csv_cell
 from report import render
 from hook_report import render as render_hook
+from audio_transcribe import DEFAULT_MODEL, media_urls, process, selected_source_items, usage_summary
 try:
     from PIL import Image
 except ImportError:
@@ -138,6 +140,34 @@ class MetricTests(unittest.TestCase):
         self.assertEqual(len(stats["patterns"]["text_formula"][0]["references"]), 2)
 
 
+class AudioTests(unittest.TestCase):
+    run_feed = CollectionTests.run_feed
+
+    def test_saved_tiktok_and_instagram_media_urls(self):
+        item = tt("1", video={"duration": 12000, "play_addr": {"url_list": ["https://cdn.test/a.mp4", "http://insecure.test/a.mp4"]}})
+        out, snap = self.run_feed([{"aweme_list": [item], "has_more": 0}], count=1)
+        source = selected_source_items(out, snap)
+        self.assertEqual(media_urls(source["1"], "tiktok"), ["https://cdn.test/a.mp4"])
+        reel = {"media": {"code": "abc", "video_versions": [{"width": 320, "height": 480, "url": "https://cdn.test/small.mp4"}, {"width": 720, "height": 1280, "url": "https://cdn.test/large.mp4"}]}}
+        out, snap = self.run_feed([{"items": [reel], "paging_info": {"more_available": False}}], platform="instagram", count=1)
+        source = selected_source_items(out, snap)
+        self.assertEqual(media_urls(source["abc"], "instagram"), ["https://cdn.test/large.mp4", "https://cdn.test/small.mp4"])
+
+    def test_dry_run_and_completed_cache_need_no_key_or_network(self):
+        item = tt("1", video={"duration": 12000, "play_addr": {"url_list": ["https://cdn.test/a.mp4"]}})
+        out, snap = self.run_feed([{"aweme_list": [item], "has_more": 0}], count=1)
+        script = Path(__file__).resolve().parents[1] / "src/social/audio_transcribe.py"
+        result = subprocess.run([sys.executable, str(script), "--out", str(out), "--dry-run"], capture_output=True, text=True, check=True)
+        self.assertEqual(json.loads(result.stdout)["media_urls_found"], 1)
+        self.assertFalse((out / "transcripts").exists())
+        cached = {"id": "1", "recent_rank": 1, "model": DEFAULT_MODEL, "status": "speech", "transcript": "Hello", "opening_0_3s": "Hello", "opening_verified": True}
+        (out / "transcripts").mkdir()
+        (out / "transcripts/001-1.json").write_text(json.dumps(cached), encoding="utf-8")
+        row = json.loads((out / "videos.json").read_text())[0]
+        self.assertEqual(process(row, item, "tiktok", out, "", DEFAULT_MODEL), cached)
+        self.assertEqual(usage_summary([{"usage": {"promptTokenCount": 10, "candidatesTokenCount": 3, "promptTokensDetails": [{"modality": "AUDIO", "tokenCount": 8}]}}]), {"input_tokens": 10, "output_tokens": 3, "input_audio_tokens": 8})
+
+
 class ReportTests(unittest.TestCase):
     run_feed = CollectionTests.run_feed
 
@@ -153,6 +183,8 @@ class ReportTests(unittest.TestCase):
         self.assertIn('id="catalog-grid"', page)
         self.assertIn('id="catalog-table"', page)
         self.assertIn("A complete audio transcript.", page)
+        with (out / "videos_with_transcripts.csv").open(encoding="utf-8-sig") as stream:
+            self.assertIn("A complete audio transcript.", stream.read())
         self.assertIn('id="patterns"', page)
         self.assertIn("&lt;script&gt;", page)
         self.assertNotIn("<script>alert", page)

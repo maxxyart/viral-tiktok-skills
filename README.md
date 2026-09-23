@@ -5,7 +5,7 @@ Research **Instagram Reels and TikTok videos** with ScrapeCreators, turn observe
 | Skill | Outcome |
 |---|---|
 | **[Social Account Short Analysis (Viral Camp)](skills/social-account-short-analysis/SKILL.md)** | CSV + concise HTML: views and comments totals/means/medians, comment rates, publication-month cohorts, top five with virality multiples, topic and offer. |
-| **[Social Account Hook Analysis (Viral Camp)](skills/social-account-hook-analysis/SKILL.md)** | Latest 60 videos by default; covers and sheets of 20; original-language hooks; text formulas × visuals × character roles; interactive local HTML with linked evidence, filters and a controlled test plan. |
+| **[Social Account Hook Analysis (Viral Camp)](skills/social-account-hook-analysis/SKILL.md)** | Latest 60 videos by default; covers and sheets of 20; optional real-audio transcription; text formulas × visuals × character roles; interactive local HTML with a sortable all-video table, linked evidence and a controlled test plan. |
 | **[Social Post Comment Analysis (Viral Camp)](skills/social-post-comment-analysis/SKILL.md)** | Bounded Instagram/TikTok comment collection, CSV, semantic audience themes, root/reply statistics and product experiments. |
 
 Both account-analysis skills honor an explicit sample size or all-available scope. Missing data remains missing; partial collection is labeled. A cover-only analysis does not pretend to have inspected the opening video. Every displayed hook formula links to 1–2 specific source posts.
@@ -38,7 +38,7 @@ To install the independently added comment skill, copy `skills/social-post-comme
 - **Python 3.10+**. Short analysis uses only the standard library.
 - **Pillow** for hook cover downloads/contact sheets: `python3 -m pip install Pillow`. Optional `pillow-heif` enables HEIC decoding. Prefer a virtual environment where appropriate.
 - A connected **ScrapeCreators MCP**, or authenticated official `scrapecreators` CLI, or `SCRAPE_CREATORS_API_KEY` in the environment for REST fallback. [Provider integration docs](https://docs.scrapecreators.com/integrations/mcp/).
-- An agent capable of reading images for hook research. No Gemini/xAI key is required by the new skills.
+- An agent capable of reading images for hook research. Audio transcription is optional; it requires `ffmpeg` and a Gemini API key. Cover-only reports do not need a Gemini/xAI key.
 
 Use the requested transport. CLI/REST is never described as MCP. Raw MCP pages can be imported without repeating API requests. No automatic key search through shell configuration and no automatic credit purchases.
 
@@ -70,6 +70,12 @@ python3 src/social/social.py collect ACCOUNT --platform instagram --count 60 \
 
 # Hook analysis: build image evidence, then let the agent inspect and write cards.json
 python3 src/social/covers.py --out runs/instagram-ACCOUNT
+# Only if audio was requested: preview scope, then transcribe actual video audio.
+# This reuses saved feed pages and does not call ScrapeCreators again.
+python3 src/social/audio_transcribe.py --out runs/instagram-ACCOUNT --dry-run
+python3 src/social/audio_transcribe.py --out runs/instagram-ACCOUNT
+python3 src/social/covers.py --out runs/instagram-ACCOUNT --sheets-only
+# The agent inspects covers/audio and writes cards.json, including uncertain rows.
 python3 src/social/social.py analyze --out runs/instagram-ACCOUNT \
   --cards runs/instagram-ACCOUNT/cards.json
 
@@ -78,12 +84,13 @@ python3 skills/social-account-hook-analysis/scripts/hook_report.py --out runs/in
   --insights runs/instagram-ACCOUNT/insights.json --lang ru
 ```
 
-`--max-pages` defaults to 100. A cap or collection failure returns exit code **2** with partial artifacts; it does not mean all videos were collected. The agent must inspect `snapshot.json`. The feed helper supports latest-N and all-available scope; date-range requests require an ordered/exhaustive capture, filtering and recalculating the cohort as described in the skill. `--lang ru|en` selects the hook report's main headings and navigation; standard metric labels remain in English, and narrative language comes from the agent's insights. The shared `src/social/report.py` remains the concise renderer for the short-analysis skill.
+`--max-pages` defaults to 100. A cap or collection failure returns exit code **2** with partial artifacts; it does not mean all videos were collected. The agent must inspect `snapshot.json`. The feed helper supports latest-N and all-available scope; date-range requests require an ordered/exhaustive capture, filtering and recalculating the cohort as described in the skill. The audio helper supports both TikTok and Instagram and caches each selected video; `--dry-run` makes no downloads or Gemini calls. It does not perform full-video visual analysis. `--lang ru|en` selects the hook report's main headings and navigation; standard metric labels remain in English, and narrative language comes from the agent's insights. The shared `src/social/report.py` remains the concise renderer for the short-analysis skill.
 
 ## Artifacts and metrics
 
-- `report.html`: portable, self-contained hook report with embedded covers, evidence map, linked examples and searchable catalog.
+- `report.html`: portable, self-contained hook report with embedded covers, evidence map, linked examples and searchable/sortable table of every selected video.
 - `videos.csv`, `months.csv`: exact selected cohort and publication-month calculations.
+- With requested audio: `transcripts.json`, `audio_usage.json`, and `videos_with_transcripts.csv` with original-language full speech and separately transcribed first three seconds.
 - `analysis.json`: reproducible metrics and hook patterns; `cards.json`: agent's visual annotations.
 - `snapshot.json`, `raw/`, `videos.json`, `fetched-videos.json`: provenance and auditable scope.
 - `covers/`, `sheets/`: original-ratio cover evidence and labeled batches of 20.

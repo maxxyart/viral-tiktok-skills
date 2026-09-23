@@ -1,6 +1,6 @@
 ---
 name: social-account-hook-analysis
-description: Analyze Instagram Reels or TikTok hooks using ScrapeCreators and visual inspection. Study the latest 60 videos by default, annotate original-language cover hooks, compare text formulas × visuals × character roles, and deliver an interactive, self-contained local HTML report with source evidence and test ideas.
+description: Analyze Instagram Reels or TikTok hooks using ScrapeCreators and visual inspection. Study the latest 60 videos by default, optionally transcribe actual audio, compare text formulas × visuals × character roles, and deliver a self-contained HTML report with a searchable all-video table and source evidence.
 ---
 
 # Social Account Hook Analysis (Viral Camp)
@@ -34,6 +34,18 @@ Persist `cards.json`, one row per **stable video ID**, as you go. Record exact h
 **A cover is not necessarily the opening frame.** A cover-only report may analyze cover hooks and propose first-second edits, but cannot claim observed spoken hooks, cuts, reveal timing, retention or full-video structure. If the user requests opening/full-video analysis, inspect that footage or obtain timestamped evidence, and label coverage per video. Report unavailable footage explicitly.
 
 Prefer native visual inspection. External OCR is optional only when allowed by the user's constraints and available credentials. Treat OCR as a draft and verify source quotes visually. Delegate only when the user/environment authorizes it; do not automatically fan out agents based on sample size.
+
+### Audio, only when requested
+
+Read [references/audio-transcription.md](references/audio-transcription.md). Use the bundled helper after collection; it reads saved feed pages and does **not** make more ScrapeCreators requests. Inspect its dry-run coverage before paid Gemini calls. It requires `ffmpeg` and an explicitly configured `GOOGLE_API_KEY` or `GEMINI_API_KEY`; never search private files for credentials. Default model is Gemini 2.5 Flash-Lite, overridable with `--model` when availability or the user's preference requires it.
+
+```bash
+python3 <skill-dir>/scripts/audio_transcribe.py --out <run-dir> --dry-run
+python3 <skill-dir>/scripts/audio_transcribe.py --out <run-dir>
+python3 <skill-dir>/scripts/covers.py --out <run-dir> --sheets-only
+```
+
+The helper caches full-audio and separately clipped first-three-second transcripts by video ID, records token usage, and uses a sampled opening frame only when a cover is unavailable. Preserve failed or uncertain rows. A speech transcript supports spoken-hook claims, not claims about on-screen actions or cuts. If video URLs in the saved feed have expired, report missing coverage and get a fresh authorized capture instead of silently switching providers.
 
 ## 3. Discover patterns without losing outliers
 
@@ -70,6 +82,6 @@ Include:
 python3 <skill-dir>/scripts/hook_report.py --out <run-dir> --insights <run-dir>/insights.json --lang ru
 ```
 
-Deliver `report.html` as a single local file with embedded cover assets, an executive summary, linked video map, group comparisons, source-backed findings, and a searchable/sortable **table of every selected video**. If independently obtained audio transcripts exist, save them as `transcripts.json`; the renderer joins them by video ID and adds spoken opening and full-transcript columns. Also keep `videos.csv` including annotations, `months.csv`, `cards.json`, `analysis.json`, `snapshot.json`, original covers and sheets, and raw responses for audit. Visually inspect the report where permitted; don't label parser/link checks as a visual review or circumvent a preview block.
+Deliver `report.html` as a single local file with embedded cover assets, an executive summary, linked video map, group comparisons, source-backed findings, and a searchable/sortable **table of every selected video**. With `transcripts.json`, the renderer joins audio by video ID, adds spoken opening and full-transcript columns, and writes `videos_with_transcripts.csv`. Also keep `videos.csv` including annotations, `months.csv`, `cards.json`, `analysis.json`, `snapshot.json`, original covers and sheets, and raw responses for audit. Visually inspect the report where permitted; don't label parser/link checks as a visual review or circumvent a preview block. Deployment/publication is a separate action, only when the user requests it.
 
 When asked to save formulas, write a project-local Markdown library with source URLs, exact source quote, generalized formula, adaptations, evidence strength, visual recipe and date. Link it from project documentation when appropriate; saving a file does not guarantee memory in future unrelated tasks.

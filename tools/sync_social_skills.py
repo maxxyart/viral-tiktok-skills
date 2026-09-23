@@ -17,7 +17,7 @@ def main():
     args = parser.parse_args()
     failures = []
     for skill in SKILLS:
-        scripts = SCRIPTS + (("covers.py",) if "hook" in skill else ())
+        scripts = SCRIPTS + (("covers.py", "audio_transcribe.py") if "hook" in skill else ())
         refs = REFS + (("hook-analysis.md",) if "hook" in skill else ())
         pairs = [(ROOT / "src/social" / f, ROOT / "skills" / skill / "scripts" / f) for f in scripts]
         pairs += [(ROOT / "src/social/references" / f, ROOT / "skills" / skill / "references" / f) for f in refs]

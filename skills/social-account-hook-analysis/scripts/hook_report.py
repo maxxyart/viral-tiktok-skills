@@ -2,12 +2,13 @@
 """Render portable HTML with metrics, cover evidence, and agent-authored insights."""
 import argparse
 import base64
+import csv
 import html
 import math
 from pathlib import Path
 from urllib.parse import urlparse
 
-from social import load
+from social import csv_cell, load
 
 
 def esc(value):
@@ -40,6 +41,24 @@ def image(path, out, alt):
 
 def table(headers, lines):
     return '<div class="scroll"><table><thead><tr>' + ''.join(f'<th>{esc(h)}</th>' for h in headers) + '</tr></thead><tbody>' + ''.join('<tr>' + ''.join(f'<td>{v}</td>' for v in row) + '</tr>' for row in lines) + '</tbody></table></div>'
+
+
+def transcript_csv(out, rows, transcripts):
+    if not transcripts:
+        return
+    fields = ["recent_rank", "id", "published_at_utc", "url", "views", "likes", "comments", "shares", "saves",
+              "duration_seconds", "virality_multiplier", "comment_rate_pct", "hook_text_exact", "hook_status",
+              "text_formula", "visual_format", "character_role", "cover_status", "cover_file",
+              "audio_status", "audio_language", "spoken_first_3s", "audio_transcript"]
+    with (out / "videos_with_transcripts.csv").open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            t = transcripts.get(str(row["id"]), {})
+            values = {key: row.get(key) for key in fields}
+            values.update(audio_status=t.get("status"), audio_language=t.get("language"),
+                          spoken_first_3s=t.get("opening_0_3s"), audio_transcript=t.get("transcript"))
+            writer.writerow({key: csv_cell(value) for key, value in values.items()})
 
 
 def scatter(rows):
@@ -77,6 +96,7 @@ def render(out, insights=None, lang="ru"):
     selected_ids = {str(r["id"]) for r in rows}
     if len(transcripts) != len(transcript_rows) or not set(transcripts) <= selected_ids:
         raise ValueError("Audio transcripts must have unique IDs from the selected cohort")
+    transcript_csv(out, rows, transcripts)
     snap, overall = stats["snapshot"], stats["overall"]
     labels = {
         "ru": {"title": "Хуки и визуальные приёмы", "summary": "Коротко", "map": "Карта роликов", "metrics": "Метрики", "months": "Месяцы публикации", "top": "Лидеры по просмотрам", "patterns": "Повторяющиеся приёмы", "insights": "Выводы и гипотезы", "sheets": "Обложки по 20", "catalog": "Все ролики", "methods": "Данные и ограничения", "draft": "Черновик данных: добавьте проверенные выводы в insights.json.", "text_formula": "Текстовые формулы", "visual_format": "Визуальные приёмы", "character_role": "Роли персонажей", "text_x_visual": "Текст × визуал"},
