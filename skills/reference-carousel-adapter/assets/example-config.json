@@ -1,0 +1,67 @@
+{
+  "canvas": [1200, 1600],
+  "font_files": {
+    "regular": "fonts/TikTokSans.ttf",
+    "bold": "fonts/TikTokSans.ttf"
+  },
+  "styles": {
+    "heading": {
+      "font": "regular",
+      "size": 80,
+      "weight": 400,
+      "text_color": "#D44985",
+      "box_color": "#F7D6E7",
+      "padding_x": 42,
+      "padding_y": 21,
+      "line_step": 100,
+      "corner_radius": 18,
+      "max_width": 1120,
+      "stroke_width": 0
+    },
+    "body": {
+      "font": "bold",
+      "size": 52,
+      "weight": 700,
+      "text_color": "#090909",
+      "box_color": "#FFFFFF",
+      "padding_x": 32,
+      "padding_y": 19,
+      "line_step": 67,
+      "corner_radius": 15,
+      "max_width": 1120,
+      "stroke_width": 0
+    }
+  },
+  "slides": [
+    {
+      "background": "backgrounds/01.png",
+      "output": "slides/01.png",
+      "layers": [
+        {
+          "style": "heading",
+          "top": 160,
+          "align": "center",
+          "lines": ["Проблема аудитории", "и обещание решения"]
+        }
+      ]
+    },
+    {
+      "background": "backgrounds/02.png",
+      "output": "slides/02.png",
+      "layers": [
+        {
+          "style": "heading",
+          "top": 120,
+          "align": "center",
+          "lines": ["Шаг 1: действие"]
+        },
+        {
+          "style": "body",
+          "top": 490,
+          "align": "center",
+          "lines": ["Короткий совет на языке аудитории.", "Одна мысль на каждом слайде."]
+        }
+      ]
+    }
+  ]
+}

@@ -1,12 +1,15 @@
-# Viral Camp — Social Account Skills
+# Viral Camp — TikTok & Instagram Skills
 
-Research **Instagram Reels and TikTok videos** with ScrapeCreators, turn observed hooks into referenced formulas, and adapt them to your product. Five skills cover account research, hook research, audience comments and carousel production. The two updated account skills are independently installable in Claude Code, Codex and other SKILL.md-compatible agents. The repository URL remains `maxxyart/viral-tiktok-skills` for existing users.
+Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks into referenced formulas, and adapt them to your product. Six skills cover account research, hook research, audience comments and carousel production. The skill folders are independently installable in Claude Code, Codex and other SKILL.md-compatible agents. The repository URL remains `maxxyart/viral-tiktok-skills` for existing users.
 
 | Skill | Outcome |
 |---|---|
 | **[Social Account Short Analysis (Viral Camp)](skills/social-account-short-analysis/SKILL.md)** | CSV + concise HTML: views and comments totals/means/medians, comment rates, publication-month cohorts, top five with virality multiples, topic and offer. |
 | **[Social Account Hook Analysis (Viral Camp)](skills/social-account-hook-analysis/SKILL.md)** | Latest 60 videos by default; covers and sheets of 20; optional real-audio transcription; text formulas × visuals × character roles; interactive local HTML with a sortable all-video table, linked evidence and a controlled test plan. |
 | **[Social Post Comment Analysis (Viral Camp)](skills/social-post-comment-analysis/SKILL.md)** | Bounded Instagram/TikTok comment collection, CSV, semantic audience themes, root/reply statistics and product experiments. |
+| **[Carousel Account Patterns](skills/carousel-account-patterns/SKILL.md)** | Research recurring photo-post formulas across a TikTok account. |
+| **[Hook + Notes Carousel](skills/hook-notes-carousel/SKILL.md)** | Produce the fixed two-slide photo hook and Notes-style payload format. |
+| **[Reference Carousel Adapter](skills/reference-carousel-adapter/SKILL.md)** | Adapt one TikTok/Instagram carousel to your product: source analysis, new hooks and slide copy, HTML storyboard, clean backgrounds and editable text overlays. |
 
 Both account-analysis skills honor an explicit sample size or all-available scope. Missing data remains missing; partial collection is labeled. A cover-only analysis does not pretend to have inspected the opening video. Every displayed hook formula links to 1–2 specific source posts.
 
@@ -32,6 +35,22 @@ cp -R skills/social-account-hook-analysis "$HOME/.codex/skills/"
 Each folder contains its runtime scripts and references. It needs neither the repository checkout nor `TIKTOK_SKILLS_ROOT` after installation. Review existing installed folders before replacing an older copy.
 
 To install the independently added comment skill, copy `skills/social-post-comment-analysis` to the same agent skills directory. It needs Python 3.9+ and no npm dependencies. Set `SCRAPE_CREATORS_API_KEY` / `SCRAPECREATORS_API_KEY` or use its explicit `--env-file` option.
+
+To install the carousel adaptation skill for a class project, copy `skills/reference-carousel-adapter` to the same agent skills directory. For example, after cloning:
+
+```bash
+# Codex
+cp -R skills/reference-carousel-adapter "$HOME/.codex/skills/"
+
+# Claude Code: use this path instead
+cp -R skills/reference-carousel-adapter "$HOME/.claude/skills/"
+```
+
+**Install a font before creating slides.** For TikTok-native captions, download [TikTok Sans from the official Google Fonts page](https://fonts.google.com/specimen/TikTok+Sans), install the variable `.ttf`, and supply its file path to the overlay renderer. The [text overlay guide](skills/reference-carousel-adapter/references/text-overlay.md) gives macOS, Windows and Linux steps and explains regular/bold weights. If your reference uses a different font, use that licensed font instead. The sample config is a template, not a finished carousel; replace its text, backgrounds and font paths for your product. Rendering needs `python3 -m pip install Pillow`.
+
+> Адаптируй эту TikTok-карусель под мой продукт: [ссылка]. Разбери смысловую и визуальную формулу, предложи несколько хуков, собери HTML-макет и готовые PNG. Используй $reference-carousel-adapter.
+
+Для этого навыка приложите ссылку на референс и короткое описание своего продукта. Агент сохранит исходный порядок слайдов, предложит новые тексты, покажет HTML-макет и соберёт финальные PNG. Фото референса и материалы вашего продукта остаются в вашем проекте, в публичный репозиторий они не входят.
 
 ### Requirements
 
@@ -141,14 +160,15 @@ The report keeps top-level comments, replies, creators and unreviewed rows expli
 likes are amplification, not a count of buyers.
 
 
-## Existing carousel workflows
+## Carousel workflows
 
-These two skills remain unchanged:
+Choose the skill for the job:
 
 - [carousel-account-patterns](skills/carousel-account-patterns/SKILL.md): TikTok photo-post formula research using ScrapeCreators + Gemini, with optional xAI fallback.
 - [hook-notes-carousel](skills/hook-notes-carousel/SKILL.md): render hook-photo + iOS Notes-style carousel slides with Pillow and your chosen background images.
+- [reference-carousel-adapter](skills/reference-carousel-adapter/SKILL.md): adapt **one** reference carousel to any product. Its [Pillow overlay script](skills/reference-carousel-adapter/scripts/render_overlay.py) keeps text editable and fails clearly on overflow; it does not generate backgrounds or call paid APIs.
 
-Their prerequisites and scripts are documented in their own SKILL.md files. Existing generated carousel work is not part of this upgrade.
+Their prerequisites and scripts are documented in their own SKILL.md files. Reference creator images and private product assets are not included in this repository.
 
 ## Develop and publish
 
