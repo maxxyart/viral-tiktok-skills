@@ -1,0 +1,4 @@
+interface:
+  display_name: "Emotion + Demo Video (Viral Camp)"
+  short_description: "Silent emotion hook with your AI character plus product demo"
+  default_prompt: "Use $emotion-demo-video to make an emotion hook + demo video from this reference with my character, backgrounds and product demo."

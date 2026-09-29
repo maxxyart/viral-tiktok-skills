@@ -1,6 +1,6 @@
 # Viral Camp — TikTok & Instagram Skills
 
-Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks into referenced formulas, and adapt them to your product. Six skills cover account research, hook research, audience comments and carousel production. The skill folders are independently installable in Claude Code, Codex and other SKILL.md-compatible agents. The repository URL remains `maxxyart/viral-tiktok-skills` for existing users.
+Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks into referenced formulas, and adapt them to your product. Seven skills cover account research, hook research, audience comments, carousel production and emotion + demo videos. The skill folders are independently installable in Claude Code, Codex and other SKILL.md-compatible agents. The repository URL remains `maxxyart/viral-tiktok-skills` for existing users.
 
 | Skill | Outcome |
 |---|---|
@@ -10,6 +10,7 @@ Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks
 | **[Carousel Account Patterns](skills/carousel-account-patterns/SKILL.md)** | Research recurring photo-post formulas across a TikTok account. |
 | **[Hook + Notes Carousel](skills/hook-notes-carousel/SKILL.md)** | Produce the fixed two-slide photo hook and Notes-style payload format. |
 | **[Reference Carousel Adapter](skills/reference-carousel-adapter/SKILL.md)** | Adapt one TikTok/Instagram carousel to your product: source analysis, new hooks and slide copy, HTML storyboard, clean backgrounds and editable text overlays. |
+| **[Emotion + Demo Video](skills/emotion-demo-video/SKILL.md)** | Short vertical video from a reference: your AI character in real donor scenes, a silent emotion hook (Nano Banana 2 + Omni 1.1 on kie.ai), TikTok-native hook overlay and your product demo. |
 
 Both account-analysis skills honor an explicit sample size or all-available scope. Missing data remains missing; partial collection is labeled. A cover-only analysis does not pretend to have inspected the opening video. Every displayed hook formula links to 1–2 specific source posts.
 
@@ -53,6 +54,14 @@ cp -R skills/reference-carousel-adapter "$HOME/.claude/skills/"
 Для этого навыка приложите ссылку на референс и короткое описание своего продукта. Агент сохранит исходный порядок слайдов, предложит новые тексты, покажет HTML-макет и соберёт финальные PNG. Исходные фото референса и материалы учеников остаются в их проектах; в репозитории опубликован только демонстрационный пример Holy60.
 
 **Пример одного формата:** [готовая карусель Holy60](examples/holy60-evelyn-carousel/README.md), сделанная по [оригинальному TikTok-референсу @studywith.evelyn](https://www.tiktok.com/@studywith.evelyn/photo/7627272727711255830). В примере видны все семь итоговых кадров; изображения исходного поста в репозиторий не добавлены. Рядом — [гайд по text overlay](skills/reference-carousel-adapter/references/text-overlay.md) для сборки текста поверх чистых фото.
+
+### Emotion + demo videos
+
+Copy `skills/emotion-demo-video` to the same agent skills directory (`$HOME/.claude/skills/` or `$HOME/.codex/skills/`). It needs `ffmpeg`, `yt-dlp`, Python 3.9+ with Pillow, a [kie.ai API key](https://kie.ai/api-key) as `KIE_API_KEY`, and a caption font: install [TikTok Sans](https://fonts.google.com/specimen/TikTok+Sans) as described in its [text overlay guide](skills/emotion-demo-video/references/text-overlay.md).
+
+> Сделай видео emotion + demo по этому референсу: [ссылка]. Персонаж – мой лист персонажа из assets/characters, фоны – первые кадры из этих роликов: [ссылки], демо – assets/demos/demo.mp4. Предложи 3 хука. Используй $emotion-demo-video.
+
+Агент сам запросит всё, чего не хватает: персонажа, фоны, демку продукта и описание аудитории. Чужие лица и чужие экраны приложений он не подставляет. Перед генерацией видео покажет стоп-кадры с персонажем и назовёт стоимость. Ассеты складываются в проект (`assets/characters`, `assets/backgrounds`, `assets/demos`) и переиспользуются в следующих роликах.
 
 ### Requirements
 
