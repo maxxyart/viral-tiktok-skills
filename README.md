@@ -11,6 +11,7 @@ Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks
 | **[Hook + Notes Carousel](skills/hook-notes-carousel/SKILL.md)** | Produce the fixed two-slide photo hook and Notes-style payload format. |
 | **[Reference Carousel Adapter](skills/reference-carousel-adapter/SKILL.md)** | Adapt one TikTok/Instagram carousel to your product: source analysis, new hooks and slide copy, HTML storyboard, clean backgrounds and editable text overlays. |
 | **[Emotion + Demo Video](skills/emotion-demo-video/SKILL.md)** | Short vertical video from a reference: your AI character in real donor scenes, a silent emotion hook (Nano Banana 2 + Omni 1.1 on kie.ai), TikTok-native hook overlay and your product demo. |
+| **[Reference Reel Clone](skills/reference-reel-clone/SKILL.md)** | One-to-one clone of a talking-creator reel with your AI avatar: storyboard, Nano Banana Pro first frame, Omni 1.1 clips with native voice and lip-sync, cloned voice only for faceless voice-over, motion graphics rendered as code, side-by-side check. |
 
 Both account-analysis skills honor an explicit sample size or all-available scope. Missing data remains missing; partial collection is labeled. A cover-only analysis does not pretend to have inspected the opening video. Every displayed hook formula links to 1–2 specific source posts.
 
@@ -62,6 +63,12 @@ Copy `skills/emotion-demo-video` to the same agent skills directory (`$HOME/.cla
 > Сделай видео emotion + demo по этому референсу: [ссылка]. Персонаж – мой лист персонажа из assets/characters, фоны – первые кадры из этих роликов: [ссылки], демо – assets/demos/demo.mp4. Предложи 3 хука. Используй $emotion-demo-video.
 
 Агент сам запросит всё, чего не хватает: персонажа, фоны, демку продукта и описание аудитории. Чужие лица и чужие экраны приложений он не подставляет. Перед генерацией видео покажет стоп-кадры с персонажем и назовёт стоимость. Ассеты складываются в проект (`assets/characters`, `assets/backgrounds`, `assets/demos`) и переиспользуются в следующих роликах.
+
+### Reference reel clone
+
+Copy `skills/reference-reel-clone` to the same agent skills directory. It needs `ffmpeg`, Python 3.9+, `pip install faster-whisper` for word-level checks, Node with Playwright for motion graphics and screen recordings, a [kie.ai API key](https://kie.ai/api-key) as `KIE_API_KEY` (or the user's own generation platform), `SCRAPE_CREATORS_API_KEY`, and – only for faceless voice-over – a key for ElevenLabs, Fish Audio or Inworld.
+
+> Сделай клон этого ролика с моим аватаром: [ссылка]. Аватар – портрет и лист персонажа в avatar/. Повторяем один в один: сцены, тайминг, моушн-графику, субтитры и текст. Голос в кадре – сразу в Omni, клон голоса только для кусков без лица. Останавливайся после каждого этапа. Используй $reference-reel-clone.
 
 ### Requirements
 

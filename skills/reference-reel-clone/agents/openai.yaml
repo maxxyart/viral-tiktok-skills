@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reference Reel Clone (Viral Camp)"
+  short_description: "Clone a talking reel with your avatar, voice and motion"
+  default_prompt: "Use $reference-reel-clone to clone this reel with my avatar: [reference link]. Stop after every stage for my OK."
