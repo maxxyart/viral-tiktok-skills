@@ -1,6 +1,6 @@
-# Viral Camp — TikTok & Instagram Skills
+# Viral Camp — TikTok, Instagram & Facebook Ads Skills
 
-Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks into referenced formulas, and adapt them to your product. Seven skills cover account research, hook research, audience comments, carousel production and emotion + demo videos. The skill folders are independently installable in Claude Code, Codex and other SKILL.md-compatible agents. The repository URL remains `maxxyart/viral-tiktok-skills` for existing users.
+Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks into referenced formulas, and adapt them to your product. Ten skills cover account research, hook research, audience comments, competitor Facebook ads, carousel production and video production. The skill folders are independently installable in Claude Code, Codex and other SKILL.md-compatible agents. The repository URL remains `maxxyart/viral-tiktok-skills` for existing users.
 
 | Skill | Outcome |
 |---|---|
@@ -12,6 +12,8 @@ Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks
 | **[Reference Carousel Adapter](skills/reference-carousel-adapter/SKILL.md)** | Adapt one TikTok/Instagram carousel to your product: source analysis, new hooks and slide copy, HTML storyboard, clean backgrounds and editable text overlays. |
 | **[Emotion + Demo Video](skills/emotion-demo-video/SKILL.md)** | Short vertical video from a reference: your AI character in real donor scenes, a silent emotion hook (Nano Banana 2 + Omni 1.1 on kie.ai), TikTok-native hook overlay and your product demo. |
 | **[Reference Reel Clone](skills/reference-reel-clone/SKILL.md)** | One-to-one clone of a talking-creator reel with your AI avatar: storyboard, Nano Banana Pro first frame, Omni 1.1 clips with native voice and lip-sync, cloned voice only for faceless voice-over, motion graphics rendered as code, side-by-side check. |
+| **[Facebook Ads Short Analysis (Viral Camp)](skills/facebook-ads-short-analysis/SKILL.md)** | All active ads of an advertiser from Facebook Ad Library via ScrapeCreators: catalog CSV, impression-ranked CSV, formats, landings (App Store / Google Play / web funnels), countries, days live, launch velocity and repeated text. No model calls. |
+| **[Facebook Ads Deep Analysis (Viral Camp)](skills/facebook-ads-deep-analysis/SKILL.md)** | Enriches the short-analysis CSV with Gemini: hook text, first-seconds visual, timestamped script, product moment, emotion and CTA for video, image and carousel creatives, then a reach-weighted report of patterns, angles, pains and adaptations with Ad Library links. |
 
 Both account-analysis skills honor an explicit sample size or all-available scope. Missing data remains missing; partial collection is labeled. A cover-only analysis does not pretend to have inspected the opening video. Every displayed hook formula links to 1–2 specific source posts.
 
@@ -69,6 +71,20 @@ Copy `skills/emotion-demo-video` to the same agent skills directory (`$HOME/.cla
 Copy `skills/reference-reel-clone` to the same agent skills directory. It needs `ffmpeg`, Python 3.9+, `pip install faster-whisper` for word-level checks, Node with Playwright for motion graphics and screen recordings, a [kie.ai API key](https://kie.ai/api-key) as `KIE_API_KEY` (or the user's own generation platform), `SCRAPE_CREATORS_API_KEY`, and – only for faceless voice-over – a key for ElevenLabs, Fish Audio or Inworld.
 
 > Сделай клон этого ролика с моим аватаром: [ссылка]. Аватар – портрет и лист персонажа в avatar/. Повторяем один в один: сцены, тайминг, моушн-графику, субтитры и текст. Голос в кадре – сразу в Omni, клон голоса только для кусков без лица. Останавливайся после каждого этапа. Используй $reference-reel-clone.
+
+### Facebook ads research
+
+Copy `skills/facebook-ads-short-analysis` and `skills/facebook-ads-deep-analysis` to the same agent skills directory. Short analysis needs Python 3.10+ with `httpx` and a [ScrapeCreators](https://scrapecreators.com) key as `SCRAPE_CREATORS_API_KEY`. Deep analysis adds `google-genai`, `ffmpeg` and a [Gemini key](https://aistudio.google.com/apikey) as `GOOGLE_API_KEY` (optional `XAI_API_KEY` covers images and carousels when Gemini is unavailable). Both scripts accept an explicit `--env-file`.
+
+```bash
+python3 -m pip install httpx google-genai
+```
+
+> Собери всю активную рекламу этого конкурента из Facebook Ad Library по US: [ссылка на страницу в Ad Library]. Отсортируй по показам, покажи форматы, куда ведут, самые долгоживущие и повторяющиеся тексты. Используй $facebook-ads-short-analysis.
+
+> Возьми топ-50 по показам из этой выгрузки и разбери хуки, сценарии и визуал. Дай паттерны, углы, боли и 7–10 адаптаций под мой продукт со ссылками на объявления. Используй $facebook-ads-deep-analysis.
+
+Meta shows commercial advertisers' impressions only as a rank, so the impression order is a ranking, not a view count. Long-running creatives near the top of that ranking are the proven ones.
 
 ### Requirements
 

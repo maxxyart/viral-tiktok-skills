@@ -1,0 +1,4 @@
+interface:
+  display_name: "Facebook Ads Short Analysis (Viral Camp)"
+  short_description: "Catalog and rank a competitor's active Facebook ads"
+  default_prompt: "Use $facebook-ads-short-analysis to collect all active ads of this advertiser from Facebook Ad Library for US: [Ad Library link]. Rank them by impressions and summarize formats, landings, longevity and repeated text."

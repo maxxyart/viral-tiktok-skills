@@ -1,0 +1,4 @@
+interface:
+  display_name: "Facebook Ads Deep Analysis (Viral Camp)"
+  short_description: "Hooks, scripts and angles of top Facebook ad creatives"
+  default_prompt: "Use $facebook-ads-deep-analysis on the top 50 creatives from my facebook-ads-short-analysis CSV, then give me visual patterns, angles, pains and 7-10 adaptations for my product with Ad Library links."
