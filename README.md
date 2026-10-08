@@ -13,7 +13,7 @@ Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks
 | **[Emotion + Demo Video](skills/emotion-demo-video/SKILL.md)** | Short vertical video from a reference: your AI character in real donor scenes, a silent emotion hook (Nano Banana 2 + Omni 1.1 on kie.ai), TikTok-native hook overlay and your product demo. |
 | **[Reference Reel Clone](skills/reference-reel-clone/SKILL.md)** | One-to-one clone of a talking-creator reel with your AI avatar: storyboard, Nano Banana Pro first frame, Omni 1.1 clips with native voice and lip-sync, cloned voice only for faceless voice-over, motion graphics rendered as code, side-by-side check. |
 | **[Facebook Ads Short Analysis (Viral Camp)](skills/facebook-ads-short-analysis/SKILL.md)** | All active ads of an advertiser from Facebook Ad Library via ScrapeCreators: catalog CSV, impression-ranked CSV, formats, landings (App Store / Google Play / web funnels), countries, days live, launch velocity and repeated text. No model calls. |
-| **[Facebook Ads Deep Analysis (Viral Camp)](skills/facebook-ads-deep-analysis/SKILL.md)** | Enriches the short-analysis CSV with Gemini: hook text, first-seconds visual, timestamped script, product moment, emotion and CTA for video, image and carousel creatives, then a reach-weighted report of patterns, angles, pains and adaptations with Ad Library links. |
+| **[Facebook Ads Deep Analysis (Viral Camp)](skills/facebook-ads-deep-analysis/SKILL.md)** | Enriches the short-analysis CSV with Gemini: hook text, first-seconds visual, timestamped script, product moment, emotion and CTA for video, image and carousel creatives, then an interactive HTML report: angles with playable creatives, reach shares, CTA and copy tables, pains and adaptations with Ad Library links. |
 
 Both account-analysis skills honor an explicit sample size or all-available scope. Missing data remains missing; partial collection is labeled. A cover-only analysis does not pretend to have inspected the opening video. Every displayed hook formula links to 1–2 specific source posts.
 
@@ -82,7 +82,7 @@ python3 -m pip install httpx google-genai
 
 > Собери всю активную рекламу этого конкурента из Facebook Ad Library по US: [ссылка на страницу в Ad Library]. Отсортируй по показам, покажи форматы, куда ведут, самые долгоживущие и повторяющиеся тексты. Используй $facebook-ads-short-analysis.
 
-> Возьми топ-50 по показам из этой выгрузки и разбери хуки, сценарии и визуал. Дай паттерны, углы, боли и 7–10 адаптаций под мой продукт со ссылками на объявления. Используй $facebook-ads-deep-analysis.
+> Возьми топ-50 по показам из этой выгрузки и разбери хуки, сценарии и визуал. Собери HTML-отчёт: энглы с роликами, боли и 7–10 адаптаций под мой продукт со ссылками на объявления. Используй $facebook-ads-deep-analysis.
 
 Meta shows commercial advertisers' impressions only as a rank, so the impression order is a ranking, not a view count. Long-running creatives near the top of that ranking are the proven ones.
 

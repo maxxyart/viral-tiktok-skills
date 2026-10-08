@@ -1,6 +1,6 @@
 ---
 name: facebook-ads-deep-analysis
-description: "Deep analysis of a Facebook Ad Library advertiser's creatives (Viral Camp) (video, image AND carousel). Takes a CSV produced by `facebook-ads-short-analysis` (catalog or *_by_impressions.csv), routes each row by `media_type`: videos are downloaded (sd, fallback hd), trimmed to the first 10 seconds with ffmpeg, and sent to Gemini for hook + timestamped script + CTA + product_moment; images are downloaded and sent directly to Gemini for OCR + visual description + emotion + CTA; carousels send up to 3 card images in ONE call (cards from the *_ads_full.json sidecar) and get a card-by-card flow. Writes enriched CSV with 7 new columns (hook_text_overlay, visual_hook, script, emotion, cta, product_moment, analysis_status) + streaming JSONL sidecar. Auto-retries with backoff, --resume re-runs only non-ok rows, --top N analyzes only the top impression-ranked creatives, Grok fallback for images/carousels when Gemini is geo-blocked. Trigger phrases - \"facebook ads deep analysis\", \"fb ads full analysis\", \"enrich fb ads csv\", \"analyze fb ad videos\", \"analyze fb ad images\", \"fb ad library gemini analysis\", \"полный анализ fb ads\", \"обогати fb ads csv\", \"анализ карусельных креативов fb\""
+description: "Deep analysis of a Facebook Ad Library advertiser's creatives (Viral Camp) (video, image AND carousel). Takes a CSV produced by `facebook-ads-short-analysis` (catalog or *_by_impressions.csv), routes each row by `media_type`: videos are downloaded (sd, fallback hd), trimmed to the first 10 seconds with ffmpeg, and sent to Gemini for hook + timestamped script + CTA + product_moment; images are downloaded and sent directly to Gemini for OCR + visual description + emotion + CTA; carousels send up to 3 card images in ONE call (cards from the *_ads_full.json sidecar) and get a card-by-card flow. Writes enriched CSV with 7 new columns (hook_text_overlay, visual_hook, script, emotion, cta, product_moment, analysis_status) + streaming JSONL sidecar. Auto-retries with backoff, --resume re-runs only non-ok rows, --top N analyzes only the top impression-ranked creatives, Grok fallback for images/carousels when Gemini is geo-blocked. Finishes with an interactive HTML report (angles with playable creatives, reach shares by impression rank, CTA and ad-copy tables, pains, adaptations with Ad Library links) rendered by scripts/report.py from an agent-written insights.json. Trigger phrases - \"facebook ads deep analysis\", \"fb ads full analysis\", \"enrich fb ads csv\", \"analyze fb ad videos\", \"analyze fb ad images\", \"fb ad library gemini analysis\", \"полный анализ fb ads\", \"обогати fb ads csv\", \"анализ карусельных креативов fb\", \"html отчёт по рекламе конкурента\", \"fb ads html report\""
 ---
 
 # Facebook Ads Deep Analysis
@@ -196,3 +196,50 @@ Why: the user needs to watch the original before adapting it. A recommendation w
 - **Count creatives per pain point**, not per hook. Many hooks target the same underlying pain.
 - **Flag any pain point with 0 coverage** in the dataset — that's a positioning gap the target product can own.
 - **Language authenticity matters more than clever copy.** If the target project has audience-research data (comments, reviews, Reddit threads), pull raw emotional phrases from it and swap them into the adapted hooks verbatim.
+
+## Step 4: HTML report (main deliverable)
+
+After the analysis, always build the interactive HTML report: every angle with its playable creatives, reach shares, CTA and ad-copy tables, pains, testing waves and adaptations with Ad Library links. The renderer computes all numbers; the agent supplies the words in `insights.json`. Nothing in the report may be invented: every claim must trace to rows of the enriched CSV.
+
+1. **Label every analyzed ad.** Read the dump from Step 3 and assign each `ad_archive_id` to exactly one angle (cluster). Leave an ad unassigned only if it has no usable analysis; the report shows unassigned weight separately.
+2. **Write `insights.json`** next to the enriched CSV (keep quoted hooks in the original language, prose in the user's language):
+
+```json
+{
+  "title": "Acme – what works in its Meta creatives",
+  "subtitle": "Meta Ad Library · [Acme page](https://www.facebook.com/ads/library/?view_all_page_id=123) · US · 2026-10-07",
+  "kpis": [{"value": "~34", "label": "concepts"}],
+  "tldr": ["**Winner:** ... (rank 1, 5 of top 10)", "**Did not work:** ..."],
+  "clusters": [
+    {"id": "A", "name": "Is it a sin to...?", "format": "Green screen: girl + tablet avatar",
+     "description": "What the creatives show and say, with a quoted hook.",
+     "verdict": "One sentence on how it performs, grounded in rank and count.",
+     "ad_ids": ["1341479120931133", "973754342343706"]}
+  ],
+  "formats": [{"name": "Creator + screen recording", "clusters": ["A", "B"], "product_moment": "6–8 s", "length": "10–15 s"}],
+  "format_notes": ["DCO with 3 videos tests hooks; the winner is relaunched as a single video ad."],
+  "cta_groups": [{"name": "Brand end card + store badges", "ad_ids": ["..."]}],
+  "cta_notes": ["No spoken CTA in the top 25; the end card does the job."],
+  "copy_notes": ["Two copy variants cover 102 ads; both are first-person testimonials."],
+  "pains": [{"pain": "I don't understand the Bible", "clusters": ["B", "C"]}],
+  "pain_gap": "What they do not target – the open gap for the user's product.",
+  "testing_notes": ["Most stopped ads lived 2–3 days; winners run 4–6 months across 6–16 ads."],
+  "adaptations": [{"title": "Angle K for moms 30–60", "text": "Adapted hook and why it fits.", "refs": ["1341479120931133"]}],
+  "avoid": ["Phone-lock angle: 10 creatives, none in the top 25."],
+  "limits": ["Ads launched in the last week have not earned a rank yet."]
+}
+```
+
+   Only `title` and `clusters` are required; empty sections are skipped. Text fields accept `**bold**` and `[text](https://url)`. `refs` and `ad_ids` are `ad_archive_id`s; the renderer links them as "rank N ↗". Shares for formats and pains are summed from the listed clusters.
+3. **Render:**
+
+```bash
+python3 "$SKILL_DIR/scripts/report.py" \
+  --enriched-csv acme_us_top_enriched.csv \
+  --insights insights.json \
+  [--out acme_report.html] [--media videos|posters|none] [--lang ru|en] [--cards-per-angle 6]
+```
+
+   The script auto-detects `<prefix>_ads_full.json` (page names) and `<prefix>_inactive.csv` (stopped ads and their buttons; run facebook-ads-short-analysis with `--include-inactive` to get it). It fails loudly on an unknown or duplicated `ad_archive_id`.
+4. **Media.** fbcdn links expire in about a day, so by default the script downloads each unique creative (video + poster) into `media/` next to the HTML; the report plays them locally and only works together with that folder. If downloads come back stale, re-run facebook-ads-short-analysis and analysis with `--resume`, then render again. `--media posters` keeps only images; `--media none` links to the remote URLs.
+5. **Check and hand over.** Open the HTML, confirm every angle shows creatives that match its description (the reference-visual consistency rule above applies to the cards too), then give the user the HTML path plus a short summary in chat. Mention the media folder size if it is large.
