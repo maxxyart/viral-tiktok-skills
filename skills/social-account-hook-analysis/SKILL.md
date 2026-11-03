@@ -34,7 +34,8 @@ screenshots; native reading assigned 100% and found format-level patterns
 
 ## Prerequisites
 
-- `SCRAPE_CREATORS_API_KEY` — env / `~/.zshenv` / `~/.zshrc` / `./.env`
+- `SCRAPE_CREATORS_API_KEY` (or `SCRAPECREATORS_API_KEY`) in the environment, or `--env-file FILE`
+  on `fetch_covers.py` / `fetch_slides.py` / `ocr_covers.py`; shell configs are never searched
 - Bundled scripts (`scripts/`): `fetch_covers.py`, `fetch_slides.py`, `pattern_stats.py`,
   `render_report.py`, `snapshot_report.py`, `export_csv.py`, `ocr_covers.py`
 - Pillow for `render_report.py` image compression (falls back to sips, much bigger files)

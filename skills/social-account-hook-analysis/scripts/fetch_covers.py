@@ -29,24 +29,23 @@ Per video: id, desc, views, likes, comments, shares, saves, date, duration,
 slides (0 = video/photo), isCarousel, isPinned, kind (video/carousel/reel/photo), music,
 link (/photo/ for TikTok carousels), coverUrl, coverFile.
 
-Env: SCRAPE_CREATORS_API_KEY (also searched in ~/.zshenv, ~/.zshrc and ./.env).
+Env: SCRAPE_CREATORS_API_KEY (or SCRAPECREATORS_API_KEY), or a KEY=value / export line in a file
+     passed with --env-file. Shell configs are never searched automatically.
 """
 import argparse, json, os, re, shutil, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-ENV_FILES = [
-    os.path.expanduser("~/.zshenv"),
-    os.path.expanduser("~/.zshrc"),
-    os.path.join(os.getcwd(), ".env"),
-]
+ENV_FILES = []  # only files passed with --env-file: no automatic search of shell configs
+ALIASES = {"SCRAPE_CREATORS_API_KEY": "SCRAPECREATORS_API_KEY", "GOOGLE_API_KEY": "GEMINI_API_KEY"}
 ALL = 10 ** 9
 PIN_SLOTS = 3  # TikTok and Instagram pin at most 3 posts, always at the top of the feed
 
 def env_key(name):
-    if os.environ.get(name):
-        return os.environ[name]
+    for n in (name, ALIASES.get(name)):
+        if n and os.environ.get(n):
+            return os.environ[n]
     for path in ENV_FILES:
         if not os.path.exists(path):
             continue
@@ -54,7 +53,7 @@ def env_key(name):
             m = re.match(rf'^(?:export\s+)?{name}\s*=\s*"?([^"\s#]+)"?', line.strip())
             if m:
                 return m.group(1)
-    sys.exit(f"ERROR: {name} not found in env or {ENV_FILES}")
+    sys.exit(f"ERROR: {name} is not set: export it or pass --env-file FILE")
 
 def api_get(path, params, key, attempts=5):
     """GET with exponential backoff: ScrapeCreators returns sporadic 500s, and a
@@ -352,6 +351,7 @@ def main():
     ap.add_argument("--auto-max", type=int, default=150,
                     help="without --count/--all/--since: fetch everything when the account has ≤ this many posts")
     ap.add_argument("--ig-source", choices=["reels", "posts"], default="reels")
+    ap.add_argument("--env-file", action="append", default=[], help="file with KEY=value lines (repeatable)")
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--slides-top", type=int, default=0,
                     help="also download all slides + top comments of the N best carousels")
@@ -364,6 +364,7 @@ def main():
     handle = args.handle.lstrip("@").rstrip("/").split("/")[-1]
     covers_dir = os.path.join(args.out_dir, "covers")
     os.makedirs(covers_dir, exist_ok=True)
+    ENV_FILES[:] = [os.path.expanduser(p) for p in args.env_file]
     key = env_key("SCRAPE_CREATORS_API_KEY")
 
     # profile first: its post counter decides the sample size

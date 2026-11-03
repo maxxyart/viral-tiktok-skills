@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from fetch_covers import api_get, env_key
+from fetch_covers import ENV_FILES, api_get, env_key
 
 def pick_indexes(meta, top, extra):
     metric = meta.get("metric") or "views"
@@ -124,7 +124,9 @@ def main():
     ap.add_argument("--top", type=int, default=0)
     ap.add_argument("--indexes", default="")
     ap.add_argument("--comments", type=int, default=20)
+    ap.add_argument("--env-file", action="append", default=[], help="file with KEY=value lines (repeatable)")
     args = ap.parse_args()
+    ENV_FILES[:] = [os.path.expanduser(p) for p in args.env_file]
     meta = json.load(open(os.path.join(args.work_dir, "meta.json"), encoding="utf-8"))
     extra = [int(x) for x in args.indexes.split(",") if x.strip()]
     if not args.top and not extra:

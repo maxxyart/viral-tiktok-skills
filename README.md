@@ -108,7 +108,7 @@ Meta shows commercial advertisers' impressions only as a rank, so the impression
 - A connected **ScrapeCreators MCP**, or authenticated official `scrapecreators` CLI, or `SCRAPE_CREATORS_API_KEY` in the environment for REST fallback. [Provider integration docs](https://docs.scrapecreators.com/integrations/mcp/).
 - An agent capable of reading images for hook research. Cover reading needs no Gemini/xAI key; FAST mode (`ocr_covers.py`) uses `GOOGLE_API_KEY` with `XAI_API_KEY` as fallback.
 
-Short analysis: use the requested transport; CLI/REST is never described as MCP; raw MCP pages can be imported without repeating API requests; no automatic key search through shell configuration. Hook analysis calls the ScrapeCreators REST API and reads `SCRAPE_CREATORS_API_KEY` from the environment, or from an `export` line in `~/.zshenv`, `~/.zshrc` or `./.env`. Neither skill buys credits.
+Short analysis: use the requested transport; CLI/REST is never described as MCP; raw MCP pages can be imported without repeating API requests; no automatic key search through shell configuration. Hook analysis calls the ScrapeCreators REST API with `SCRAPE_CREATORS_API_KEY` (or `SCRAPECREATORS_API_KEY`) from the environment or an explicit `--env-file`; it does not search shell configs either. Neither skill buys credits.
 
 ## Ask the agent
 

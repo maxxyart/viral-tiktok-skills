@@ -20,15 +20,13 @@ import argparse, base64, json, os, re, sys, time
 from concurrent.futures import ThreadPoolExecutor
 from urllib.request import Request, urlopen
 
-ENV_FILES = [
-    os.path.expanduser("~/.zshenv"),
-    os.path.expanduser("~/.zshrc"),
-    os.path.join(os.getcwd(), ".env"),
-]
+ENV_FILES = []  # only files passed with --env-file: no automatic search of shell configs
+ALIASES = {"SCRAPE_CREATORS_API_KEY": "SCRAPECREATORS_API_KEY", "GOOGLE_API_KEY": "GEMINI_API_KEY"}
 
 def env_key(name, required=True):
-    if os.environ.get(name):
-        return os.environ[name]
+    for n in (name, ALIASES.get(name)):
+        if n and os.environ.get(n):
+            return os.environ[n]
     for path in ENV_FILES:
         if not os.path.exists(path):
             continue
@@ -37,7 +35,7 @@ def env_key(name, required=True):
             if m:
                 return m.group(1)
     if required:
-        sys.exit(f"ERROR: {name} not found in env or {ENV_FILES}")
+        sys.exit(f"ERROR: {name} is not set: export it or pass --env-file FILE")
     return None
 
 CARD_PROMPT = """You analyze a short-video cover/thumbnail image for marketing research.
@@ -112,7 +110,9 @@ def main():
     ap.add_argument("--out")
     ap.add_argument("--provider", choices=["auto", "gemini", "grok"], default="auto")
     ap.add_argument("--concurrency", type=int, default=8)
+    ap.add_argument("--env-file", action="append", default=[], help="file with KEY=value lines (repeatable)")
     args = ap.parse_args()
+    ENV_FILES[:] = [os.path.expanduser(p) for p in args.env_file]
 
     meta = json.load(open(args.meta, encoding="utf-8"))
     videos = meta["videos"]
