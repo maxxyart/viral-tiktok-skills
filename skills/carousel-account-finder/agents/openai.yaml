@@ -1,0 +1,4 @@
+interface:
+  display_name: "Carousel Account Finder (Viral Camp)"
+  short_description: "Find carousel-first TikTok accounts for a topic and lay them out on one page"
+  default_prompt: "Use $carousel-account-finder to find TikTok accounts that grow on carousels for this topic: [topic]. Pick the search keywords from my product research in [folder], screen the accounts for the last 12 months and build the HTML page with carousel-first accounts, super carousels and repeated formulas."

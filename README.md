@@ -7,6 +7,7 @@ Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks
 | **[Social Account Short Analysis (Viral Camp)](skills/social-account-short-analysis/SKILL.md)** | CSV + concise HTML: views and comments totals/means/medians, comment rates, publication-month cohorts, top five with virality multiples, topic and offer. |
 | **[Social Account Hook Analysis (Viral Camp)](skills/social-account-hook-analysis/SKILL.md)** | Latest 60 videos by default; covers and sheets of 20; optional real-audio transcription; text formulas × visuals × character roles; interactive local HTML with a sortable all-video table, linked evidence and a controlled test plan. |
 | **[Social Post Comment Analysis (Viral Camp)](skills/social-post-comment-analysis/SKILL.md)** | Bounded Instagram/TikTok comment collection, CSV, semantic audience themes, root/reply statistics and product experiments. |
+| **[Carousel Account Finder (Viral Camp)](skills/carousel-account-finder/SKILL.md)** | TikTok accounts that grow on carousels in your niche: keywords from your product research, Top search and feed screening, super carousels and repeated winning formulas, verbatim slide OCR and niche fit by sub-agents, one HTML page with an account per screen. |
 | **[Carousel Account Patterns](skills/carousel-account-patterns/SKILL.md)** | Research recurring photo-post formulas across a TikTok account. |
 | **[Hook + Notes Carousel](skills/hook-notes-carousel/SKILL.md)** | Produce the fixed two-slide photo hook and Notes-style payload format. |
 | **[Reference Carousel Adapter](skills/reference-carousel-adapter/SKILL.md)** | Adapt one TikTok/Instagram carousel to your product: source analysis, new hooks and slide copy, HTML storyboard, clean backgrounds and editable text overlays. |
@@ -57,6 +58,18 @@ cp -R skills/reference-carousel-adapter "$HOME/.claude/skills/"
 Для этого навыка приложите ссылку на референс и короткое описание своего продукта. Агент сохранит исходный порядок слайдов, предложит новые тексты, покажет HTML-макет и соберёт финальные PNG. Исходные фото референса и материалы учеников остаются в их проектах; в репозитории опубликован только демонстрационный пример Holy60.
 
 **Пример одного формата:** [готовая карусель Holy60](examples/holy60-evelyn-carousel/README.md), сделанная по [оригинальному TikTok-референсу @studywith.evelyn](https://www.tiktok.com/@studywith.evelyn/photo/7627272727711255830). В примере видны все семь итоговых кадров; изображения исходного поста в репозиторий не добавлены. Рядом — [гайд по text overlay](skills/reference-carousel-adapter/references/text-overlay.md) для сборки текста поверх чистых фото.
+
+### Carousel account finder
+
+Copy `skills/carousel-account-finder` to the same agent skills directory. It needs Python 3.10+ with Pillow, a [ScrapeCreators](https://scrapecreators.com) key exported as `SCRAPE_CREATORS_API_KEY`, and an agent that reads images and runs sub-agents (Claude Code). On Linux or Windows add `pillow-heif` for HEIC slides; macOS converts them with the built-in `sips`. A run of ~60 screened accounts costs up to ~12 ScrapeCreators credits per account; the skill states the agent token estimate before OCR.
+
+```bash
+python3 -m pip install Pillow pillow-heif
+```
+
+> Найди TikTok-аккаунты, которые растут на каруселях, по теме «[тема]». Ключевые слова подбери из ресерча продукта в папке [папка]: персоны, боли, контент-энглы. Окно 12 месяцев. Собери страницу с карусельными аккаунтами, супер-каруселями и повторяющимися формулами. Используй $carousel-account-finder.
+
+Агент сам подберёт 6–10 поисковых фраз из ресерча и покажет, какой персоне служит каждая. Проверки частотности нет: слабые запросы видны по выдаче, их заменяют во втором проходе. Дальше скилл отбирает аккаунты, где карусели составляют от 40% постов и стабильно набирают просмотры. Слайды читают дешёвые саб-агенты, соответствие нише и персоне решают более сильные. Результат – одна HTML-страница и `accounts.csv`.
 
 ### Emotion + demo videos
 
@@ -198,6 +211,7 @@ likes are amplification, not a count of buyers.
 
 Choose the skill for the job:
 
+- [carousel-account-finder](skills/carousel-account-finder/SKILL.md): find carousel-first TikTok accounts, super carousels and repeated formulas for a topic; ScrapeCreators + Pillow, slide reading and niche fit by sub-agents, no other paid APIs.
 - [carousel-account-patterns](skills/carousel-account-patterns/SKILL.md): TikTok photo-post formula research using ScrapeCreators + Gemini, with optional xAI fallback.
 - [hook-notes-carousel](skills/hook-notes-carousel/SKILL.md): render hook-photo + iOS Notes-style carousel slides with Pillow and your chosen background images.
 - [reference-carousel-adapter](skills/reference-carousel-adapter/SKILL.md): adapt **one** reference carousel to any product. Its [Pillow overlay script](skills/reference-carousel-adapter/scripts/render_overlay.py) keeps text editable and fails clearly on overflow; it does not generate backgrounds or call paid APIs.

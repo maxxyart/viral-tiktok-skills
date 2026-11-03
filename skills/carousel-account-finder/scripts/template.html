@@ -1,0 +1,647 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one block per account, ranked. Each block = top-5 rail | big carousel viewer with post metrics overlaid | account panel. Screening table at the end. Single dark look (media viewer). */
+:root {
+  --bg: #111013;
+  --panel: #1a191d;
+  --line: #2c2b31;
+  --fg: #f2f0f5;
+  --muted: #9b98a3;
+  --accent: #5ccf95;
+  --warn: #e8b45a;
+  --bad: #e2766f;
+  --media-bg: #000000;
+  --on-media: #ffffff;
+  --scrim: rgba(12, 12, 14, 0.55);
+  --shade: rgba(0, 0, 0, 0.72);
+  --seg-off: rgba(255, 255, 255, 0.3);
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Instrument Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --stage-h: min(calc(100vh - 110px), 900px);
+  color-scheme: dark;
+}
+@supports (height: 100dvh) { :root { --stage-h: min(calc(100dvh - 110px), 900px); } }
+* { box-sizing: border-box; }
+html { scroll-padding-top: 12px; scroll-snap-type: y proximity; }
+.acct { scroll-snap-align: start; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+a { color: inherit; }
+a:focus-visible, button:focus-visible, .track:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { max-width: 1340px; margin: 0 auto; padding-inline: 20px; padding-block: 18px 64px; display: grid; gap: 22px; }
+
+.intro { display: grid; gap: 12px; }
+.intro h1 { font: 700 clamp(26px, 3.6vw, 38px) / 1.08 var(--font-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.intro h1 q { quotes: "“" "”"; color: var(--accent); }
+.intro p { margin: 0; color: var(--muted); max-width: 80ch; }
+/* 2026-10-28: facts are plain read-only text, filters a segmented control, blocks underlined tabs */
+.facts { display: flex; flex-wrap: wrap; gap: 2px 0; padding: 0; margin: 0; list-style: none; color: var(--muted); font: 500 12.5px var(--font-data); }
+.facts li + li::before { content: "·"; margin: 0 9px; color: var(--line); }
+.ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ctl-label { font: 600 11px var(--font-data); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.jump { display: flex; flex-wrap: wrap; gap: 6px; }
+.jump button { font: 500 13px var(--font-data); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+.jump button:hover { border-color: var(--muted); }
+.jump button span { color: var(--muted); margin-right: 6px; }
+
+.acct { display: grid; gap: 12px; padding-top: 22px; border-top: 1px solid var(--line); scroll-margin-top: 8px; }
+.acct-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.acct-head .num { font: 600 14px var(--font-data); color: var(--muted); }
+.acct-head h2 { font: 700 26px / 1.1 var(--font-display); margin: 0; }
+.acct-head h2 a { text-decoration: none; }
+.acct-head h2 a:hover { text-decoration: underline; text-decoration-color: var(--accent); }
+.tag { font: 600 12px var(--font-data); padding: 3px 9px; border-radius: 999px; border: 1px solid currentColor; }
+.tag.good { color: var(--accent); } .tag.mid { color: var(--warn); } .tag.bad { color: var(--bad); }
+.acct-head .lead { color: var(--muted); font-size: 14px; flex-basis: 100%; max-width: 110ch; }
+.acct-head .lead b { color: var(--fg); font-weight: 600; }
+
+.main { display: grid; grid-template-columns: 76px auto minmax(260px, 340px); justify-content: center; align-items: start; gap: 20px; }
+
+.rail { display: flex; flex-direction: column; align-items: center; gap: 10px; max-height: var(--stage-h); overflow-y: auto; scrollbar-width: none; padding: 2px; }
+.rail::-webkit-scrollbar { display: none; }
+.rail-head { display: grid; justify-items: center; gap: 0; font: 600 12px var(--font-data); color: var(--muted); padding-block: 4px 2px; text-align: center; line-height: 1.2; }
+.rail-head svg { width: 24px; height: 24px; color: var(--fg); }
+.thumb { position: relative; flex: 0 0 auto; width: 64px; aspect-ratio: 2 / 3; padding: 0; border-radius: 10px; overflow: hidden; border: 2px solid var(--line); background: var(--panel); cursor: pointer; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; object-position: left center; display: block; }
+.thumb .b { position: absolute; inset: auto 0 0 0; padding: 12px 2px 3px; font: 600 11.5px var(--font-data); color: var(--on-media); text-align: center; background: linear-gradient(transparent, var(--shade)); }
+.thumb:hover { border-color: var(--muted); }
+.thumb.on { border-color: var(--accent); }
+
+.stage { position: relative; height: var(--stage-h); aspect-ratio: var(--ar, 3 / 4); max-width: 100%; border-radius: 18px; overflow: hidden; background: var(--media-bg); }
+.track { display: flex; height: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; overscroll-behavior-x: contain; scrollbar-width: none; cursor: pointer; }
+.track::-webkit-scrollbar { display: none; }
+.slide { flex: 0 0 100%; height: 100%; scroll-snap-align: start; }
+.slide .pic { width: 100%; height: 100%; background-repeat: no-repeat; background-color: var(--media-bg); }
+.ov { transition: opacity .2s; }
+.clean .ov { opacity: 0; pointer-events: none; }
+.shade-b { position: absolute; inset: auto 0 0 0; height: 40%; background: linear-gradient(to top, var(--shade), transparent); pointer-events: none; }
+.shade-r { position: absolute; top: 0; bottom: 0; right: 0; width: 120px; background: linear-gradient(to left, rgba(0, 0, 0, 0.42), transparent); pointer-events: none; }
+.chip { position: absolute; top: 14px; left: 14px; max-width: calc(100% - 150px); padding: 6px 12px; border-radius: 999px; background: var(--scrim); color: var(--on-media); font: 500 13px var(--font-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; backdrop-filter: blur(6px); }
+.tools { position: absolute; top: 12px; right: 12px; display: flex; align-items: center; gap: 8px; }
+.count { padding: 6px 11px; border-radius: 999px; background: var(--scrim); color: var(--on-media); font: 500 13px var(--font-data); font-variant-numeric: tabular-nums; backdrop-filter: blur(6px); }
+.round { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--scrim); color: var(--on-media); display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(6px); }
+.round svg { width: 20px; height: 20px; }
+.snav { position: absolute; top: 38%; translate: 0 -50%; font-size: 22px; line-height: 1; opacity: 0; transition: opacity .2s; }
+.snav.prev { left: 12px; } .snav.next { right: 12px; }
+.stage:hover .snav, .snav:focus-visible { opacity: 1; }
+.snav[disabled] { opacity: 0 !important; pointer-events: none; }
+.side { position: absolute; right: 10px; bottom: 92px; display: grid; gap: 13px; justify-items: center; width: 74px; color: var(--on-media); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+.side div { display: grid; justify-items: center; gap: 1px; }
+.side svg { width: 27px; height: 27px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+.side b { font: 600 15.5px var(--font-data); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.side small { font: 500 10px var(--font-data); text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.85; margin-top: -2px; }
+.foot { position: absolute; left: 18px; right: 96px; bottom: 24px; display: grid; gap: 4px; color: var(--on-media); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+.foot .hook { font: 600 clamp(17px, 2vw, 22px) / 1.2 var(--font-display); text-decoration: none; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-wrap: balance; }
+.foot a:hover { text-decoration: underline; }
+.foot .when { font: 500 13px var(--font-data); opacity: 0.88; }
+.segs { position: absolute; left: 14px; right: 14px; bottom: 9px; display: flex; gap: 3px; pointer-events: none; }
+.segs i { flex: 1; height: 3px; border-radius: 2px; background: var(--seg-off); transition: background .2s; }
+.segs i.on { background: var(--on-media); }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 16px; max-height: var(--stage-h); overflow-y: auto; min-width: 0; align-content: start; }
+.who { display: grid; gap: 6px; }
+.who .name { font: 600 15px var(--font-body); }
+.who .meta { font: 500 12.5px var(--font-data); color: var(--muted); }
+.bio { margin: 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px 12px; border-left: 2px solid var(--line); color: var(--fg); }
+.bio-link { font: 500 13px var(--font-data); overflow-wrap: anywhere; }
+.kv { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 0; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.kv div { background: var(--panel); padding: 8px 10px; min-width: 0; }
+.kv dt { font: 500 10.5px var(--font-data); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.kv dd { margin: 0; font: 600 17px var(--font-data); font-variant-numeric: tabular-nums; }
+.kv dd small { font: 500 12px var(--font-data); color: var(--muted); margin-left: 4px; }
+.kv .hl dd { color: var(--accent); }
+.kv .wide-row { grid-column: 1 / -1; }
+.kv-title { font: 500 11px var(--font-data); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 -8px; }
+.an { display: grid; gap: 4px; }
+.an h3 { margin: 0; display: flex; align-items: center; gap: 8px; font: 500 11px var(--font-data); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.an p { margin: 0; font-size: 14px; }
+.an .formula { font: 500 13.5px / 1.55 var(--font-data); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
+.bd { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.bd h3 { margin: 0; font: 500 11px var(--font-data); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.bd ol { margin: 0; padding-left: 20px; display: grid; gap: 3px; font-size: 13.5px; }
+.bd ol li::marker { font: 600 12px var(--font-data); color: var(--muted); }
+.bd .row { display: grid; gap: 2px; font-size: 13.5px; }
+.bd .row b { font: 500 10.5px var(--font-data); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.bd .row .tag { font-size: 10.5px; padding: 1px 7px; text-transform: none; letter-spacing: 0; }
+.bd .why { color: var(--muted); font-size: 13px; margin: 0; }
+.keys { font: 12px var(--font-data); color: var(--muted); }
+.keys kbd { font: inherit; color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+
+.screen { display: grid; gap: 14px; padding-top: 22px; border-top: 1px solid var(--line); }
+.screen h2 { font: 600 22px var(--font-display); margin: 0; }
+.screen p { margin: 0; color: var(--muted); font-size: 14px; max-width: 90ch; }
+.table-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 13.5px; }
+th, td { text-align: left; padding: 8px 11px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+th { font: 500 11px var(--font-data); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); white-space: nowrap; }
+td.num, th.num { text-align: right; font-family: var(--font-data); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td a { text-decoration: none; font-family: var(--font-data); }
+td a:hover { text-decoration: underline; }
+tr.pass td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+td .why { color: var(--muted); }
+td .ok { color: var(--accent); font-weight: 600; }
+footer { color: var(--muted); font-size: 13px; display: grid; gap: 4px; }
+footer code { font-family: var(--font-data); font-size: 12px; overflow-wrap: anywhere; }
+
+@media (max-width: 1080px) {
+  .main { grid-template-columns: 76px auto; }
+  .panel { grid-column: 1 / -1; max-height: none; }
+}
+@media (max-width: 640px) {
+  .app { padding-inline: 16px; }
+  .main { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .rail { flex-direction: row; max-height: none; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
+  .rail-head { display: none; }
+  .thumb { width: 54px; }
+  .stage { width: 100%; height: auto; border-radius: 14px; }
+  .panel { grid-column: auto; }
+  .side { right: 4px; bottom: 76px; gap: 9px; width: 60px; }
+  .side svg { width: 22px; height: 22px; }
+  .side b { font-size: 13px; }
+  .foot { left: 12px; right: 70px; bottom: 18px; }
+}
+@media (hover: none) { .snav { display: none; } }
+@media (prefers-reduced-motion: reduce) { .track { scroll-behavior: auto; } .ov, .segs i, .snav { transition: none; } }
+
+/* One account = one screen: card fills the viewport, the carousel scales to what is left. */
+/* proximity, not mandatory: blocks 2 and 3 after the last account have no snap point and mandatory pulled the page
+   back to account 60 (2026-10-28) */
+html { scroll-snap-type: y proximity; }
+.intro, .block { scroll-snap-align: start; }
+.acct { height: 100vh; height: 100dvh; padding-block: 12px; gap: 10px; grid-template-rows: auto minmax(0, 1fr); border-top: 0; scroll-margin-top: 0; overflow: hidden; }
+.acct-head { gap: 6px 10px; align-items: center; }
+.acct-head h2 { font-size: 22px; }
+.main { height: 100%; min-height: 0; align-items: stretch; gap: 16px; }
+.stage { height: 100%; }
+.rail, .panel { max-height: 100%; }
+.panel { padding: 14px; gap: 10px; }
+.kv { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kv div { padding: 6px 8px; }
+.kv dt { font-size: 9.5px; }
+.kv dd { font-size: 15px; }
+.kv dd small { display: block; margin-left: 0; font-size: 11px; }
+.kv-title { margin: 0 0 -4px; }
+.an p { font-size: 13px; line-height: 1.4; }
+.side { bottom: 84px; gap: 10px; }
+.side svg { width: 23px; height: 23px; }
+.side b { font-size: 14px; }
+.foot .hook { font-size: clamp(15px, 1.6vw, 19px); -webkit-line-clamp: 2; }
+@media (max-width: 1080px) {
+  .main { grid-template-columns: 64px minmax(0, 1fr) minmax(220px, 280px); gap: 10px; }
+  .stage { justify-self: center; }
+  .panel { grid-column: auto; max-height: 100%; }
+}
+@media (max-width: 760px) {
+  .app { padding-inline: 10px; gap: 0; }
+  .acct { padding-block: 4px 6px; gap: 4px; }
+  .acct-head h2 { font-size: 18px; }
+  .acct-head .num { font-size: 12px; }
+  .tag { font-size: 10.5px; padding: 1px 7px; }
+  .main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; gap: 6px; }
+  .rail { flex-direction: row; max-height: none; overflow-x: auto; overflow-y: hidden; padding: 0 0 2px; gap: 6px; justify-content: center; }
+  .rail-head { display: none; }
+  .thumb { width: 40px; border-radius: 7px; }
+  .thumb .b { font-size: 9.5px; padding-top: 8px; }
+  .stage { width: auto; height: 100%; max-width: 100%; justify-self: center; border-radius: 12px; }
+  .chip { display: none; }
+  .round { width: 32px; height: 32px; }
+  .side { right: 2px; bottom: 56px; gap: 6px; width: 50px; }
+  .side svg { width: 18px; height: 18px; }
+  .side b { font-size: 12px; }
+  .side small { font-size: 8.5px; }
+  .foot { left: 10px; right: 54px; bottom: 14px; }
+  .foot .hook { font-size: 14px; }
+  .foot .when { font-size: 11px; }
+  .panel { padding: 8px; gap: 6px; border-radius: 10px; }
+  .who { gap: 0; }
+  .who .name { font-size: 13px; }
+  .who .meta { font-size: 11px; }
+  .an h3 { font-size: 10px; }
+  .tools .toggle { display: none; }
+  .an p { font-size: 12px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .kv-title { display: none; }
+  .kv { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kv div { padding: 3px 5px; }
+  .kv dt { font-size: 8px; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kv dd { font-size: 12.5px; }
+  .kv dd small { font-size: 9.5px; }
+  .kv .wide-row { grid-column: span 2; }
+}
+
+.quotes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.quotes li { display: grid; gap: 1px; padding-left: 9px; border-left: 2px solid var(--accent); }
+.quotes q { font-size: 13px; line-height: 1.35; quotes: "“" "”"; overflow-wrap: anywhere; }
+.quotes small { font: 500 10.5px var(--font-data); color: var(--muted); }
+@media (max-width: 760px) { .quotes { gap: 3px; } .quotes q { font-size: 11.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } .quotes small { font-size: 9px; } .quotes li:nth-child(n+3) { display: none; } }
+
+.kv .ratio { grid-column: 1 / -1; background: color-mix(in srgb, var(--warn) 16%, var(--panel)); }
+.kv .ratio dt { color: var(--warn); }
+.kv .ratio dd { color: var(--warn); font-size: 19px; }
+@media (max-width: 760px) { .kv .ratio { grid-column: span 2; } .kv .ratio dd { font-size: 14px; } }
+.an .pname { font: 700 16px/1.25 var(--font-display); color: var(--accent); margin: 0; }
+@media (max-width: 760px) { .an .pname { font-size: 13.5px; } }
+.tag.fav { color: #1a1407; background: var(--warn); border-color: var(--warn); }
+
+.star { font-size: 26px; line-height: 1; background: none; border: 0; padding: 0 4px; cursor: pointer; color: var(--muted); }
+.star:hover { color: var(--warn); }
+.star.on { color: var(--warn); text-shadow: 0 0 10px color-mix(in srgb, var(--warn) 45%, transparent); }
+@media (max-width: 760px) { .star { font-size: 22px; } }
+
+.summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.sum { display: grid; gap: 2px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.sum b { font: 700 clamp(28px, 4vw, 44px) / 1 var(--font-display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.sum span { font: 600 14px var(--font-body); }
+.sum small { font: 500 11.5px var(--font-data); color: var(--muted); }
+@media (max-width: 760px) { .summary { gap: 6px; } .sum { padding: 10px; } .sum span { font-size: 12px; } .sum small { font-size: 9.5px; } }
+
+.filter { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.ctl[hidden] { display: none; }
+.filter button { font: 600 13px var(--font-data); color: var(--fg); background: transparent; border: 0; border-radius: 7px; padding: 7px 14px; cursor: pointer; }
+.filter button:hover:not([aria-pressed="true"]) { background: var(--bg); }
+.filter button b { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.filter button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #0d1a12; }
+.filter button[aria-pressed="true"] b { color: #0d1a12; }
+.acct[hidden] { display: none; }
+/* 2026-10-27: block tabs, fit line (persona + research angle), super carousels and successful repeats */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px 22px; border-bottom: 1px solid var(--line); }
+.tabs a { font: 600 14px var(--font-data); color: var(--fg); text-decoration: none; padding: 10px 0 9px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs a b { color: var(--muted); font-weight: 500; margin-left: 6px; }
+.tabs a:hover { border-bottom-color: var(--accent); }
+.fitline { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 13.5px; color: var(--muted); }
+.fitline b { color: var(--fg); font-weight: 600; }
+.block { display: grid; gap: 16px; padding-top: 26px; border-top: 1px solid var(--line); scroll-margin-top: 8px; }
+.block > h2 { font: 700 26px / 1.1 var(--font-display); margin: 0; }
+.block > p { margin: 0; color: var(--muted); max-width: 90ch; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+.card .top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.card .top a { font: 600 15px var(--font-data); text-decoration: none; }
+.card .top a:hover { text-decoration: underline; }
+.card .big { font: 700 22px var(--font-data); }
+.card .big small { font: 600 14px var(--font-data); color: var(--warn); margin-left: 6px; }
+.stripbox { overflow-x: auto; border-radius: 10px; background: #000; scrollbar-width: thin; }
+.stripbox img { display: block; height: 380px; max-width: none; }
+.card dl { margin: 0; display: grid; gap: 6px; font-size: 13.5px; }
+.card dt { font: 500 10.5px var(--font-data); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.card dd { margin: 0; overflow-wrap: anywhere; }
+.card q { quotes: "“" "”"; }
+.group { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+.group .row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(200px, 260px); gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.group .mini { display: grid; gap: 6px; font-size: 13px; min-width: 0; }
+.group .mini .stripbox img { height: 300px; }
+.group .mini b { font: 600 13px var(--font-data); }
+.group .mini b small { color: var(--warn); margin-left: 4px; }
+/* member already shown in an account card above: cover + link instead of a second strip */
+.group .mini.ref .refthumb { display: block; height: 300px; border-radius: 10px; overflow: hidden; border: 1px dashed var(--line); background: var(--panel); }
+.group .mini.ref .refthumb img { width: 100%; height: 100%; object-fit: cover; object-position: left center; display: block; opacity: .75; }
+.group .mini.ref .refthumb:hover img { opacity: 1; }
+.group .mini.ref a.see { color: var(--accent); font: 600 12.5px var(--font-data); text-decoration: none; }
+.empty { color: var(--muted); font-size: 14px; }
+[hidden] { display: none !important; }
+/* angle filter (2026-10-28): many pills, so they wrap and stay readable on a phone */
+#afilter button { padding: 6px 11px; font-size: 12.5px; max-width: 100%; text-align: left; }
+#afilter button i { font-style: normal; color: var(--muted); margin-right: 3px; }
+#afilter button[aria-pressed="true"] i { color: #0d1a12; }
+.anone { margin: 8px 0 0; }
+@media (max-width: 640px) { .stripbox img { height: 300px; } .group .row { grid-auto-columns: 78%; } }
+</style>
+
+<div class="app" id="app">
+  <header class="intro">
+    <div class="summary" id="summary"></div>
+    <h1>Carousel accounts in the <q>__TOPIC__</q> niche</h1>
+    <ul class="facts" id="facts"></ul>
+    <div class="ctl"><span class="ctl-label" id="filter-l">Filter accounts</span>
+    <div class="filter" id="filter" role="group" aria-labelledby="filter-l">
+      <button type="button" data-f="all" aria-pressed="true">All <b id="n-all"></b></button>
+      <button type="button" data-f="yes" aria-pressed="false">With integration <b id="n-yes"></b></button>
+      <button type="button" data-f="no" aria-pressed="false">Without integration <b id="n-no"></b></button>
+    </div></div>
+    <div class="ctl" id="cfilter-w" hidden><span class="ctl-label" id="cfilter-l">Christian signals</span>
+    <div class="filter" id="cfilter" role="group" aria-labelledby="cfilter-l">
+      <button type="button" data-c="all" aria-pressed="true">All <b id="c-all"></b></button>
+      <button type="button" data-c="yes" aria-pressed="false">✝ Christian <b id="c-yes"></b></button>
+      <button type="button" data-c="no" aria-pressed="false">Not Christian <b id="c-no"></b></button>
+    </div></div>
+
+    <div class="ctl" id="gfilter-w" hidden><span class="ctl-label" id="gfilter-l">Group</span>
+    <div class="filter" id="gfilter" role="group" aria-labelledby="gfilter-l"></div></div>
+    <div class="ctl" id="afilter-w" hidden><span class="ctl-label" id="afilter-l">Filter by angle</span>
+    <div class="filter" id="afilter" role="group" aria-labelledby="afilter-l"></div></div>
+
+    <div><span class="ctl-label">Blocks</span>
+    <nav class="tabs" id="tabs" aria-label="Blocks"></nav></div>
+  </header>
+  <p class="empty anone" id="accounts-none" hidden>No carousel-first account for this angle.</p>
+  <div id="accounts"></div>
+  <section class="block" id="supers"><h2>Single super carousels</h2><p id="supers-rule"></p><p class="empty anone" hidden>Nothing for this angle.</p><div class="cards" id="supers-cards"></div></section>
+  <section class="block" id="repeats"><h2>Successful repeats</h2><p id="repeats-rule"></p><p class="empty anone" hidden>Nothing for this angle.</p><div id="repeats-groups" style="display:grid;gap:16px"></div></section>
+</div>
+
+<script>
+const DATA = /*DATA*/;
+
+const $ = id => document.getElementById(id);
+const fmt = n => n == null ? "–" : n >= 1e6 ? (n / 1e6).toFixed(2).replace(/\.?0+$/, "") + "M"
+  : n >= 1e4 ? Math.round(n / 1e3) + "k"
+  : n >= 1e3 ? (n / 1e3).toFixed(1).replace(/\.0$/, "") + "k" : String(n);
+const pct = n => n.toFixed(2).replace(/0$/, "") + "%";
+const cr = n => n == null ? "–" : (n >= 1 ? n.toFixed(2) : n.toFixed(3)).replace(/0$/, "") + "%";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const longDate = s => { const [y, m, d] = s.split("-").map(Number); return `${d} ${MONTHS[m - 1]} ${y}`; };
+const shortDate = s => s.slice(2).split("-").reverse().join(".");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const tagClass = t => t === "carousel-first" ? "good" : t === "borderline" ? "mid" : "bad";
+
+const ICON = {
+  views: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  likes: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.5s-7.6-4.6-9.4-9.2C1.3 7.9 3.6 4.5 7.1 4.5c2.1 0 3.6 1.2 4.9 3 1.3-1.8 2.8-3 4.9-3 3.5 0 5.8 3.4 4.5 6.8-1.8 4.6-9.4 9.2-9.4 9.2z"/></svg>',
+  comments: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.5c5.2 0 9.5 3.5 9.5 7.9s-4.3 7.9-9.5 7.9c-1 0-2-.1-2.9-.4L4.5 21l1.1-4.1C3.7 15.5 2.5 13.6 2.5 11.4 2.5 7 6.8 3.5 12 3.5z"/></svg>',
+  saves: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.5 3h11A1.5 1.5 0 0 1 19 4.5V21l-7-4.6L5 21V4.5A1.5 1.5 0 0 1 6.5 3z"/></svg>',
+  shares: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 4.5 21 11.6l-7.5 7.1v-4.2c-5.3 0-8.6 1.5-10.5 5.2.6-5.6 3.5-10.1 10.5-10.9z"/></svg>',
+  rate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.6"/><circle cx="17.5" cy="17.5" r="2.6"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  stack: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="13" height="13" rx="2.5"/><path d="M16 8V5.5A2.5 2.5 0 0 0 13.5 3h-8A2.5 2.5 0 0 0 3 5.5v8A2.5 2.5 0 0 0 5.5 16H8"/></svg>',
+};
+
+const A = DATA.accounts;
+{ const S = DATA.summary, big = n => n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : n >= 1e3 ? Math.round(n / 1e3) + "K" : String(n);
+  $("summary").innerHTML = [[S.accounts, "carousel accounts found", `${S.in_niche} of them in niche` + (S.christian != null ? ` · ${S.christian} Christian` : "")],
+    [S.carousels.toLocaleString("en-US"), "carousel posts", "in the last 12 months"],
+    [big(S.views), "total carousel views", "lower bound: feeds capped at ~50 recent posts"]]
+    .map(([n, l, s]) => `<div class="sum"><b>${n}</b><span>${l}</span><small>${s}</small></div>`).join(""); }
+$("facts").innerHTML = DATA.facts.map(f => `<li>${esc(f)}</li>`).join("");
+const viewers = [];
+
+function accountBlock(a, idx) {
+  const sec = document.createElement("section");
+  sec.className = "acct";
+  sec.id = "acct-" + a.handle;
+  sec.dataset.int = (a.analysis || {}).product_yes ? "yes" : "no";
+  sec.dataset.chr = (a.analysis || {}).christian ? "yes" : "no";
+  sec.dataset.grp = (a.analysis || {}).grp || "-";
+  sec.dataset.angles = ((a.analysis || {}).angles || [(a.analysis || {}).angle || "none"]).join("|");
+  sec.id = "a-" + a.handle;
+  const an = a.analysis || {};
+  sec.innerHTML = `
+    <div class="acct-head">
+      <span class="num">${String(idx + 1).padStart(2, "0")} / ${String(A.length).padStart(2, "0")}</span>
+      <h2><a href="${a.url}" target="_blank" rel="noopener">@${esc(a.handle)} ↗</a></h2>
+      <button type="button" class="star" data-h="${esc(a.handle)}" aria-pressed="false" title="Add to favorites" aria-label="Favorite @${esc(a.handle)}">☆</button>
+      ${a.note ? `<span class="tag good">${esc(a.note)}</span>` : ""}
+      <span class="tag ${tagClass(a.tier)}">${esc(a.tier)} · ${Math.round(a.carousel_share * 100)}% carousels</span>
+      ${an.consistency_level ? `<span class="tag ${an.consistency_level === "high" ? "good" : an.consistency_level === "medium" ? "mid" : "bad"}">consistency: ${esc(an.consistency_level)}</span>` : ""}
+      ${an.niche_fit ? `<span class="tag ${an.niche_fit === "in niche" ? "good" : an.niche_fit === "adjacent niche" ? "mid" : "bad"}">${esc(an.niche_fit)}</span>` : ""}
+      ${DATA.christian_filter ? `<span class="tag ${an.christian ? "good" : "bad"}" title="${esc(an.christian_signals || "")}">${an.christian ? "✝ Christian" : "no Christian signals"}</span>` : ""}
+      ${(an.tags || []).map(t => `<span class="tag mid">${esc(t)}</span>`).join("")}
+      ${an.mono_fit ? `<span class="tag ${an.mono_fit === "подходит" ? "good" : an.mono_fit === "частично" ? "mid" : "bad"}" title="${esc(an.mono_note || "")}">монохром: ${esc(an.mono_fit)}</span>` : ""}
+      <span class="tag ${an.product_yes ? "good" : "bad"}">integration: ${an.product_yes ? "yes" : "no"}</span>
+      ${an.persona || an.angle ? `<div class="fitline">${an.persona && an.persona !== "none" ? `<span>persona: <b>${esc(an.persona)}</b></span>` : ""}${an.angle && an.angle !== "none" ? `<span>angle: <b>${esc(an.angle)}</b></span>` : ""}${an.fit_reason ? `<span>${esc(an.fit_reason)}</span>` : ""}</div>` : ""}
+    </div>
+    <div class="main">
+      <nav class="rail" aria-label="Top 5 carousels of @${esc(a.handle)}">
+        <div class="rail-head" title="Account's top 5 carousels over 12 months">${ICON.stack}<span>top ${a.carousels.length}</span></div>
+        <div class="thumbs" style="display:contents"></div>
+      </nav>
+      <div class="stage">
+        <div class="track" tabindex="0"></div>
+        <div class="shade-b ov"></div><div class="shade-r ov"></div>
+        <span class="chip ov sound"></span>
+        <div class="tools">
+          <span class="count"></span>
+          <button type="button" class="round toggle" aria-pressed="false" title="Hide metrics (M)" aria-label="Hide metrics">${ICON.eye}</button>
+        </div>
+        <button type="button" class="round snav prev" aria-label="Previous slide">‹</button>
+        <button type="button" class="round snav next" aria-label="Next slide">›</button>
+        <div class="side ov"></div>
+        <div class="foot ov"></div>
+        <div class="segs"></div>
+      </div>
+      <aside class="panel">
+        <div class="who">
+          <div class="name">${esc(a.nickname)}</div>
+          <div class="meta">${fmt(a.followers)} followers${a.total_likes ? ` · ${fmt(a.total_likes)} likes` : ""}${a.all_time_posts ? ` · ${a.all_time_posts} posts all time` : ""}</div>
+        </div>
+        <p class="kv-title">Last 12 months</p>
+        <dl class="kv">
+          <div class="ratio" title="Average carousel views / followers"><dt>Avg views / followers</dt><dd>${a.followers ? (a.car_avg_views / a.followers).toFixed(a.car_avg_views / a.followers >= 10 ? 0 : 2) + "×" : "–"}</dd></div>
+          <div><dt>Posts</dt><dd>${a.posts_win}</dd></div>
+          <div class="hl"><dt>Carousels</dt><dd>${a.carousels_win}<small>${Math.round(a.carousel_share * 100)}%</small></dd></div>
+          <div class="hl"><dt>Total views</dt><dd>${fmt(a.car_total_views)}</dd></div>
+          <div class="hl"><dt>Median</dt><dd>${fmt(a.car_median_views)}</dd></div>
+          <div><dt>Average</dt><dd>${fmt(a.car_avg_views)}</dd></div>
+          <div><dt>Comments</dt><dd>${fmt(a.car_total_comments)}</dd></div>
+          <div><dt>Saves</dt><dd>${fmt(a.car_total_saves)}</dd></div>
+          <div class="hl" title="Comments / views across all carousels in the window"><dt>Comment rate</dt><dd>${cr(a.car_comment_rate)}</dd></div>
+        </dl>
+        ${DATA.christian_filter ? `<div class="an chr"><h3>Christian signals <span class="tag ${an.christian ? "good" : "bad"}">${an.christian ? "yes" : "no"}</span></h3>${an.christian_signals ? `<p>${esc(an.christian_signals)}</p>` : ""}</div>` : ""}
+        ${an.angle_use ? `<div class="an"><h3>How to use for our product</h3><p>${esc(an.angle_use)}</p></div>` : ""}
+        <div class="an"><h3>Product integration <span class="tag ${an.product_yes ? "good" : "bad"}">${an.product_yes ? "yes" : "no"}</span></h3>${an.product_yes && an.product_name ? `<p class="pname">${esc(an.product_name)}</p>` : ""}${an.product_yes && (an.quotes || []).length ? `<ul class="quotes">${an.quotes.map(x => `<li><q>${esc(x.text)}</q><small>${esc(x.where)}</small></li>`).join("")}</ul>` : an.product_yes ? `<p>${esc(an.product || "")}</p>` : ""}</div>
+      </aside>
+    </div>`;
+  $("accounts").appendChild(sec);
+  viewers.push(makeViewer(sec, a));
+}
+
+function makeViewer(sec, a) {
+  const stage = sec.querySelector(".stage"), track = sec.querySelector(".track");
+  const thumbs = sec.querySelector(".thumbs");
+  let ci = -1, si = 0, loaded = false;
+  const paint = () => track.querySelectorAll(".pic").forEach(el => { el.style.backgroundImage = `url("${el.dataset.bg}")`; });
+  new IntersectionObserver((es, ob) => { if (es.some(e => e.isIntersecting)) { loaded = true; paint(); ob.disconnect(); } }, { rootMargin: "800px 0px" }).observe(sec);
+  thumbs.innerHTML = a.carousels.map((c, i) =>
+    `<button type="button" class="thumb" data-i="${i}" aria-label="Carousel ${i + 1}: ${esc(c.hook)}"><img src="${c.thumb}" alt="" loading="lazy"><span class="b">${fmt(c.views)}</span></button>`).join("");
+  const q = s => sec.querySelector(s);
+
+  function show(i) {
+    if (i === ci) return;
+    ci = i; si = 0;
+    const c = a.carousels[i];
+    stage.style.setProperty("--ar", c.ar);
+    track.style.scrollBehavior = "auto";
+    const n = c.n_slides;
+    track.innerHTML = Array.from({ length: n }, (_, k) =>
+      `<div class="slide"><div class="pic" role="img" aria-label="Slide ${k + 1} of ${n}" data-bg="${c.strip}" style="background-size:${n * 100}% 100%;background-position:${n > 1 ? (k / (n - 1)) * 100 : 0}% 0"></div></div>`).join("");
+    if (loaded) paint();
+    track.scrollLeft = 0;
+    requestAnimationFrame(() => { track.style.scrollBehavior = ""; });
+    track.setAttribute("aria-label", `@${a.handle}, carousel ${i + 1} of ${a.carousels.length}`);
+    q(".sound").textContent = "♪ " + (c.music || "no sound");
+    q(".segs").innerHTML = "<i></i>".repeat(c.n_slides);
+    q(".side").innerHTML = [
+      ["views", fmt(c.views), "", "Views"], ["likes", fmt(c.likes), "", "Likes"],
+      ["comments", fmt(c.comments), "", "Comments"], ["saves", fmt(c.saves), "", "Saves"],
+      ["shares", fmt(c.shares), "", "Shares"], ["rate", pct(c.save_rate), "save", "Save rate: saves / views"],
+      ["rate", cr(c.comment_rate), "com", "Comment rate: comments / views"],
+    ].map(([k, v, cap, t]) => `<div title="${t}">${ICON[k]}<b>${v}</b>${cap ? `<small>${cap}</small>` : ""}</div>`).join("");
+    q(".foot").innerHTML = `
+      <a class="hook" href="${c.url}" target="_blank" rel="noopener">${esc(c.hook || c.desc.slice(0, 90))}</a>
+      <span class="when">#${i + 1} by views · ${shortDate(c.date)} · ${c.n_slides} slides${c.ocr_scope === "cover only" ? ` · <span class="tag mid" title="Only slide 1 was read; text of the other slides was not transcribed">cover only</span>` : ""} · <a href="${c.url}" target="_blank" rel="noopener">post ↗</a></span>`;
+    thumbs.querySelectorAll(".thumb").forEach(t => t.classList.toggle("on", +t.dataset.i === i));
+    update(true);
+  }
+  function update(force) {
+    const c = a.carousels[ci];
+    const i = Math.max(0, Math.min(c.n_slides - 1, Math.round(track.scrollLeft / Math.max(1, track.clientWidth))));
+    if (i === si && !force) return;
+    si = i;
+    q(".count").textContent = `${i + 1}/${c.n_slides}`;
+    q(".segs").querySelectorAll("i").forEach((s, k) => s.classList.toggle("on", k === i));
+    q(".prev").disabled = i <= 0;
+    q(".next").disabled = i >= c.n_slides - 1;
+  }
+  const go = d => track.scrollTo({ left: (si + d) * track.clientWidth });
+  track.addEventListener("scroll", () => requestAnimationFrame(() => update()), { passive: true });
+  track.addEventListener("click", e => {
+    const r = track.getBoundingClientRect(), x = (e.clientX - r.left) / r.width;
+    if (x < 0.33) go(-1); else if (x > 0.67) go(1);
+  });
+  q(".prev").addEventListener("click", () => go(-1));
+  q(".next").addEventListener("click", () => go(1));
+  thumbs.addEventListener("click", e => { const b = e.target.closest(".thumb"); if (b) show(+b.dataset.i); });
+  q(".toggle").addEventListener("click", toggleAll);
+  show(0);
+  return { sec, go, realign: () => { track.style.scrollBehavior = "auto"; track.scrollLeft = si * track.clientWidth; track.style.scrollBehavior = ""; } };
+}
+
+function toggleAll() {
+  const on = !document.body.classList.contains("clean");
+  document.body.classList.toggle("clean", on);
+  document.querySelectorAll(".toggle").forEach(b => { b.setAttribute("aria-pressed", String(on)); b.title = on ? "Show metrics (M)" : "Hide metrics (M)"; });
+}
+
+function activeViewer() {
+  let best = null, bestD = Infinity;
+  for (const v of viewers) {
+    const r = v.sec.querySelector(".stage").getBoundingClientRect();
+    const d = Math.abs((r.top + r.bottom) / 2 - innerHeight / 2);
+    if (r.bottom > 0 && r.top < innerHeight && d < bestD) { best = v; bestD = d; }
+  }
+  return best;
+}
+
+A.forEach(accountBlock);
+
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+    const v = activeViewer(); if (!v) return;
+    e.preventDefault(); v.go(e.key === "ArrowRight" ? 1 : -1);
+  } else if (["m", "M", "ь", "Ь"].includes(e.key)) toggleAll();
+});
+addEventListener("resize", () => viewers.forEach(v => v.realign()));
+
+
+// Favorites: clickable star next to the handle. Defaults come from the data; the viewer's own choices are kept in this browser.
+const FAV_KEY = "fav:" + document.title;
+let favs;
+try { favs = JSON.parse(localStorage.getItem(FAV_KEY)); } catch (e) { favs = null; }
+if (!favs || typeof favs !== "object") favs = Object.fromEntries(A.filter(a => a.fav).map(a => [a.handle, true]));
+function paintStar(b) {
+  const on = !!favs[b.dataset.h];
+  b.textContent = on ? "★" : "☆";
+  b.classList.toggle("on", on);
+  b.setAttribute("aria-pressed", String(on));
+  b.title = on ? "In favorites (click to remove)" : "Add to favorites";
+}
+document.querySelectorAll(".star").forEach(paintStar);
+document.addEventListener("click", e => {
+  const b = e.target.closest(".star"); if (!b) return;
+  favs[b.dataset.h] = !favs[b.dataset.h];
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (err) {}
+  paintStar(b);
+});
+
+// Blocks: tabs, single super carousels, successful repeats (2026-10-27)
+{ const S = DATA.supers || [], R = DATA.repeats || [];
+  const fitTag = f => f ? `<span class="tag ${f === "in niche" ? "good" : f === "adjacent niche" ? "mid" : "bad"}">${esc(f)}</span>` : "";
+  const fitRows = c => `${c.persona && c.persona !== "none" ? `<div><dt>Persona</dt><dd>${esc(c.persona)}</dd></div>` : ""}${c.angle && c.angle !== "none" ? `<div><dt>Angle from research</dt><dd>${esc(c.angle)}</dd></div>` : ""}`;
+  $("tabs").innerHTML = [["accounts", "Carousel-first accounts", A.length], ["supers", "Single super carousels", S.length], ["repeats", "Successful repeats", R.length]]
+    .map(([id, l, n]) => `<a href="#${id}">${l}<b id="t-${id}">${n}</b></a>`).join("");
+  $("supers-rule").textContent = "Rule: " + DATA.block_rules.super + ". Text read slide by slide; fit, persona and angle decided against our product and research.";
+  $("repeats-rule").textContent = "Rule: " + DATA.block_rules.repeat + ".";
+  $("supers-cards").innerHTML = S.length ? S.map(c => `<article class="card" data-grp="${esc(c.grp || "-")}" data-angle="${esc(c.angle || "none")}">
+    <div class="top"><a href="${c.acc_url}" target="_blank" rel="noopener">@${esc(c.handle)} ↗</a>${fitTag(c.fit)}${c.mono ? `<span class="tag good">carousel-first</span>` : ""}${c.ocr_scope === "cover only" ? `<span class="tag mid" title="Only slide 1 was read">cover only</span>` : ""}${c.note ? `<span class="tag good">${esc(c.note)}</span>` : ""}</div>
+    <div class="big">${fmt(c.views)}<small>${c.x}× median</small></div>
+    <div class="stripbox"><img src="${c.strip}" alt="All ${c.n_slides} slides of the carousel" loading="lazy"></div>
+    <dl><div><dt>Hook</dt><dd><q>${esc(c.hook)}</q></dd></div>
+      ${c.formula ? `<div><dt>Formula</dt><dd>${esc(c.formula)}</dd></div>` : ""}
+      ${c.format ? `<div><dt>Visual</dt><dd>${esc(c.format)}${c.visual && c.visual.typography ? " · " + esc(c.visual.typography) : ""}</dd></div>` : ""}
+      ${fitRows(c)}
+      <div><dt>Post</dt><dd>${shortDate(c.date)} · ${c.n_slides} slides · ${fmt(c.saves)} saves · account median ${fmt(c.median_all)} · <a href="${c.url}" target="_blank" rel="noopener">open ↗</a></dd></div></dl>
+  </article>`).join("") : `<p class="empty">No carousel met the rule.</p>`;
+  $("repeats-groups").innerHTML = R.length ? R.map(g => `<article class="group" data-grp="${esc(g.grp || "-")}" data-angle="${esc(g.angle || "none")}">
+    <div class="top" style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline"><a href="${g.acc_url}" target="_blank" rel="noopener" style="font:600 16px var(--font-data);text-decoration:none">@${esc(g.handle)} ↗</a>${fitTag(g.fit)}${g.note ? `<span class="tag good">${esc(g.note)}</span>` : ""}<span class="tag mid">${g.n} carousels · group median ${fmt(g.group_median)} · ${g.group_x}× account</span></div>
+    <dl class="card" style="padding:0;border:0;background:none"><div><dt>Hook template</dt><dd><b>${esc(g.hook_template)}</b></dd></div>
+      <div><dt>Formula</dt><dd>${esc(g.formula)}</dd></div>${g.why ? `<div><dt>What repeats</dt><dd>${esc(g.why)}</dd></div>` : ""}${fitRows(g)}</dl>
+    <div class="row">${g.items.map(c => c.ref ? `<div class="mini ref"><a class="refthumb" href="#acct-${esc(c.ref)}" aria-label="Shown above in @${esc(c.ref)}"><img src="${c.thumb}" alt="" loading="lazy"></a>
+      <b>${fmt(c.views)}<small>${c.x}×</small></b><span><q>${esc(c.hook)}</q></span><a class="see" href="#acct-${esc(c.ref)}">see @${esc(c.ref)} above ↑</a></div>` : `<div class="mini"><div class="stripbox"><img src="${c.strip}" alt="Slides" loading="lazy"></div>
+      <b>${fmt(c.views)}<small>${c.x}×</small></b><span><q>${esc(c.hook)}</q></span><a href="${c.url}" target="_blank" rel="noopener">${shortDate(c.date)} ↗</a></div>`).join("")}</div>
+  </article>`).join("") : `<p class="empty">No account met the rule.</p>`;
+}
+
+// Filters: integration (all / with / without) and, on faith runs, Christian signals (all / yes / no).
+// Both apply together; counts in the buttons; choices remembered per viewer.
+{ const secs = () => [...document.querySelectorAll(".acct")];
+  const st = { f: "all", c: "all", a: "all", g: "all" };
+  const hasG = (s, g = st.g) => g === "all" || (s.dataset.grp || "-") === g;
+  // angle: accounts match their own angle or any carousel angle; super cards and repeat groups their own
+  const hasA = (s, a) => a === "all" || (s.dataset.angles || s.dataset.angle || "none").split("|").includes(a);
+  const ok = (s, f, c, a = st.a) => (f === "all" || s.dataset.int === f) && (c === "all" || s.dataset.chr === c) && hasA(s, a) && hasG(s);
+  const cards = () => [...document.querySelectorAll("#supers-cards > article")], groups = () => [...document.querySelectorAll("#repeats-groups > article")];
+  const order = DATA.angle_order || [];
+  const seen = new Set([...secs().flatMap(s => s.dataset.angles.split("|")), ...cards().map(c => c.dataset.angle), ...groups().map(g => g.dataset.angle)]);
+  const angles = [...seen].filter(x => x && x !== "none").sort((x, y) => ((order.indexOf(x) + 1) || 999) - ((order.indexOf(y) + 1) || 999) || x.localeCompare(y));
+  if (seen.has("none")) angles.push("none");
+  const short = x => { if (x === "none") return "No angle"; const [id, ...r] = x.split(" · "); let n = r.join(" · ").replace(/\s*\(.*?\)\s*/g, " ").split(" / ")[0].trim();
+    if (n.length > 42) n = n.slice(0, 40).replace(/\s+\S*$/, "") + "…"; return n ? `<i>${esc(id)}</i> ${esc(n)}` : esc(id); };
+  const total = a => secs().filter(s => ok(s, st.f, st.c, a)).length + cards().filter(c => hasA(c, a)).length + groups().filter(g => hasA(g, a)).length;
+  const paint = () => {
+    ["all", "yes", "no"].forEach(v => {
+      const n = $("n-" + v), m = $("c-" + v);
+      if (n) n.textContent = secs().filter(s => ok(s, v, st.c)).length;
+      if (m) m.textContent = secs().filter(s => ok(s, st.f, v)).length;
+    });
+    secs().forEach(s => { s.hidden = !ok(s, st.f, st.c); });
+    cards().forEach(c => { c.hidden = !hasA(c, st.a) || !hasG(c); });
+    groups().forEach(g => { g.hidden = !hasA(g, st.a) || !hasG(g); });
+    document.querySelectorAll("#gfilter button").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.g === st.g));
+      b.querySelector("b").textContent = [secs(), cards(), groups()].map(l => l.filter(s => (b.dataset.g === "all" || (s.dataset.grp || "-") === b.dataset.g) && (l !== secs() || (st.f === "all" || s.dataset.int === st.f)) && hasA(s, st.a)).length).join(" · "); });
+    const vis = { accounts: secs().filter(s => !s.hidden).length, supers: cards().filter(c => !c.hidden).length, repeats: groups().filter(g => !g.hidden).length };
+    Object.entries(vis).forEach(([id, n]) => { const b = $("t-" + id); if (b) b.textContent = n; });
+    $("accounts-none").hidden = !(st.a !== "all" && !vis.accounts);
+    ["supers", "repeats"].forEach(id => { $(id).querySelector(".anone").hidden = !(st.a !== "all" && !vis[id] && (id === "supers" ? cards() : groups()).length); });
+    document.querySelectorAll("#afilter button").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.a === st.a)); b.querySelector("b").textContent = total(b.dataset.a); });
+    document.querySelectorAll("#filter button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.f === st.f)));
+    document.querySelectorAll("#cfilter button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.c === st.c)));
+    try { localStorage.setItem("filter:" + document.title, st.f); localStorage.setItem("cfilter:" + document.title, st.c); localStorage.setItem("afilter:" + document.title, st.a); } catch (e) {}
+  };
+  $("filter").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { st.f = b.dataset.f; paint(); } });
+  if (angles.length) {
+    $("afilter-w").hidden = false;
+    $("afilter").innerHTML = ["all", ...angles].map(x => `<button type="button" data-a="${esc(x)}" aria-pressed="false" title="${esc(x === "all" ? "All angles" : x === "none" ? "No research angle" : x)}">${x === "all" ? "All" : short(x)} <b></b></button>`).join("");
+    $("afilter").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { st.a = b.dataset.a; paint(); } });
+  }
+  if ((DATA.group_filter || []).length) {
+    $("gfilter-w").hidden = false;
+    $("gfilter").innerHTML = [["all", "All"], ...DATA.group_filter].map(([k, l]) => `<button type="button" data-g="${esc(k)}" aria-pressed="false" title="accounts · single carousels · repeat groups">${k === "all" ? "All" : esc(k + " · " + l)} <b></b></button>`).join("");
+    $("gfilter").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { st.g = b.dataset.g; paint(); } });
+  }
+  if (DATA.christian_filter) {
+    $("cfilter-w").hidden = false;
+    $("cfilter").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { st.c = b.dataset.c; paint(); } });
+  }
+  try {
+    st.f = localStorage.getItem("filter:" + document.title) || "all";
+    if (DATA.christian_filter) st.c = localStorage.getItem("cfilter:" + document.title) || "all";
+    const sa = localStorage.getItem("afilter:" + document.title); if (sa && (sa === "all" || angles.includes(sa))) st.a = sa;
+  } catch (e) {}
+  paint(); }
+</script>
