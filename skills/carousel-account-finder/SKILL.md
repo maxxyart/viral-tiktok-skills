@@ -2,15 +2,17 @@
 name: carousel-account-finder
 description: >
   Find carousel-first ("моно-карусельные" / majority-carousel) TikTok accounts for a topic or
-  keywords and publish them as a swipeable English HTML page. Pipeline: search keywords picked from
-  the product's research (personas, content angles) -> ScrapeCreators Top search -> collect carousel
+  keywords and publish them as a swipeable English HTML page. Pipeline: product context from the
+  research, else the project's CLAUDE.md, else the user (asked when nothing is there) -> search keywords
+  drafted from it and approved by the user -> ScrapeCreators Top search -> collect carousel
   authors -> screen each account's feed (5 pages, default 12 months) -> three blocks: carousel-first
   accounts (>=40% carousels), single super carousels (>=100k views and >=5x account median) and
   successful repeats (3+ carousels with the same meaning-level hook and formula, each >=10k, group
   median >=2x) -> Haiku sub-agents OCR every slide and describe the visual, Sonnet sub-agents decide
-  fit (in niche / adjacent / off) against the product and pick the research persona and angle -> page
+  fit (in niche / adjacent / off) against the product and pick the persona and angle -> page
   with tabs for the three blocks, one account per screen, integration quotes. Input: topic or explicit
-  keywords, product research files, optional reference accounts. Trigger phrases: "найди карусельные
+  keywords, product context (research files, CLAUDE.md or the user's words), optional reference
+  accounts. Trigger phrases: "найди карусельные
   аккаунты", "моно-карусельные аккаунты", "монокарусельные аккаунты", "карусельные аккаунты по теме",
   "кто в нише делает карусели", "поиск карусельных аккаунтов", "find carousel accounts",
   "carousel-first accounts", "mono carousel accounts", "carousel account finder"
@@ -24,9 +26,10 @@ carousels keep getting views. One viral carousel on a video account does not cou
 ## Inputs
 
 - **Topic** (e.g. "trauma bonding") or **explicit keywords** (use them verbatim). Required.
-- **Product research**, optional but recommended: personas / target audience, voice of customer, content
-  angles. Keywords and the niche verdicts are built from it. Without it, ask for 2–3 lines on the product
-  and its audience.
+- **Product context**: what the product is, who it is for, their pains, content rules. Keywords and the
+  niche verdicts are built from it. Taken from product research if the project has it, else from the
+  project's CLAUDE.md, else from the request. When none of them says what the product is and who it is
+  for, ask the user (step 1a).
 - **Reference accounts**, optional: always screened, badge "★ reference" on the page.
 - **Window**, optional: default 12 months for both the found carousel and the account activity.
 - **Thresholds**, optional overrides (defaults below).
@@ -54,7 +57,7 @@ carousels keep getting views. One viral carousel on a video account does not cou
 | Single super carousel (any screened account) | ≥ 100,000 views and ≥ 5× account median (all posts in window) | `candidates.py --super-views --super-x` |
 | Successful repeat | ≥ 3 carousels, same meaning-level hook + formula, each ≥ 10,000 views, group median ≥ 2× account median | `candidates.py --rep-views --rep-x` |
 | OCR + visual | Haiku sub-agents, every slide verbatim | `references/ocr_prompt.md` |
-| Niche fit (в нише / смежная ниша / вне ниши), persona, angle, repeat groups | Sonnet sub-agents on the OCR text; persona and angle only as ids from `taxonomy.json` built from the product research | `references/decide_prompt.md` |
+| Niche fit (в нише / смежная ниша / вне ниши), persona, angle, repeat groups | Sonnet sub-agents on the OCR text; persona and angle only as ids from `taxonomy.json` built from the product context | `references/decide_prompt.md` |
 
 The 40% share (not 50%) is deliberate: strong carousel accounts often mix in videos. One reference
 account ran ~44% carousels, every one of them above 50k views.
@@ -76,27 +79,38 @@ test -n "$SCRAPE_CREATORS_API_KEY" && echo key-ok
 ```
 Run all scripts with plain `python3` and absolute paths.
 
-**1. Keywords from the research.** Keywords given -> use them as-is. Otherwise:
-- Find the product's research in its project folder: personas / target audience, voice of customer,
-  content angles, plus any content rules in the project's instructions. Read them.
-- Write 12–20 English seed phrases straight from it: each persona's situation and pain in viewers' words,
-  every content angle, the product's job ("meeting notes", "follow-up email"). Note which persona each
-  seed comes from.
+**1a. Product context.** Take the first source that says what the product is and who it is for, and tell
+the user which one you used:
+1. Product research in the project folder: personas / target audience, voice of customer, content angles.
+2. Otherwise the project's `CLAUDE.md` (or `AGENTS.md` / README): product, audience, pains, content rules.
+3. Otherwise what the user wrote in the request.
+Also read the content rules from `CLAUDE.md` even when the research exists. If none of the three names the
+product and its audience, stop and ask the user before anything else: the product in 1–2 lines, 2–3 audience
+types, their main pains or situations, topics to avoid. Never fill the gap with guesses.
+
+**1b. Keywords, approved by the user.** Keywords given in the request -> use them as-is and skip the
+approval. Otherwise:
+- Write 12–20 English seed phrases from the context: each audience type's situation and pain in viewers'
+  words, every content angle, the product's job ("meeting notes", "follow-up email"). Note which audience
+  type each seed comes from.
 - Pick 6–10 of them as search queries: 2–4 words a viewer would type into TikTok search, one situation or
-  pain per query, covering every persona. Avoid single broad words (they pull memes and fandom accounts
+  pain per query, covering every audience type. Avoid single broad words (they pull memes and fandom accounts
   that pass the numeric filters) and brand names unless the user asks for them.
-- Save `$OUT/keywords.json` = `[{"keyword", "persona", "seed", "note"}]` and show the user the list with the
-  persona each query serves.
+- **Show the user the queries for approval** as a table: query, audience type, why it should surface
+  carousels; list the reserve seeds below it. Stop and wait. Search only after the user approves; apply their
+  edits first.
+- Save the approved list as `$OUT/keywords.json` = `[{"keyword", "persona", "seed", "note"}]`.
 There is no search-volume check. A query proves itself by what it returns: `search.py` prints carousels
-per page for every query. Replace queries that bring almost no carousels in step 2.
+per page for every query.
 
 **2. Search.**
 ```bash
 python3 "$SKILL_DIR/scripts/search.py" "$OUT" --since $SINCE [--include ref1,ref2] "q1" "q2" ...
 ```
-Prints carousels per query page, carousel authors found and pool size. If the pool is under ~20 accounts,
-add 2–4 more queries (reworded seeds from the research) and rerun the same command (results merge;
-searched queries are skipped). Note the queries that yielded nothing for the reply.
+Prints carousels per query page, carousel authors found and pool size. If the pool is under ~20 accounts
+or some queries brought almost no carousels, propose 2–4 replacements from the reserve seeds, get the
+user's approval the same way, and rerun the same command (results merge; searched queries are skipped).
+Note the queries that yielded nothing for the reply.
 
 **3. Screen** (run in the background; ~5–15 min for 60 accounts; wait for it to finish, don't poll):
 ```bash
@@ -122,11 +136,13 @@ python3 "$SKILL_DIR/scripts/fetch_top5.py" "$OUT" --jobs
 ```
 
 **5. Taxonomy, then OCR (Haiku), then decisions (Sonnet).**
-- Write `$OUT/taxonomy.json` by hand from the product research: `{"source": [paths], "personas": [{"id": "P1",
-  "name": "<exact heading from the research>", "label_en": "<short English gloss>", "note": "<1 line>"}],
+- Write `$OUT/taxonomy.json` by hand from the step 1a context: `{"source": [paths or "user"], "personas": [{"id": "P1",
+  "name": "<exact name from the source>", "label_en": "<short English gloss>", "note": "<1 line>"}],
   "angles": [{"id": "A1", "name": "<exact row/heading>", "label_en": "...", "personas": ["P1"], "note": "..."}]}`.
   Copy names verbatim (personas incl. the anti-persona; every row of an angle table; trigger and feature-angle
-  sections of other research reports). Short ids (P1, A3, T3.2, F4). Never add an angle that is not in the files.
+  sections of other research reports). Short ids (P1, A3, T3.2, F4). With only CLAUDE.md or the user's answers,
+  personas are the audience types named there and angles the topics of the approved queries. Never add a persona
+  or an angle that is not in the source or the approved list.
 - Triage first: `scripts/triage.py "$OUT"` builds one sheet per job account (first slides of up to 8
   carousels); Haiku agents with `references/triage_prompt.md` (~25 accounts each) write `triage/<h>.fit.json`;
   only "в нише" / "смежная ниша" go on. ~5.6k tokens per account.
@@ -142,7 +158,7 @@ python3 "$SKILL_DIR/scripts/fetch_top5.py" "$OUT" --jobs
   `model: "sonnet"`, 8 accounts each, all in ONE message. They write `analysis/<h>.json` with per-carousel
   fit / persona / angle in "carousels" (niche_fit, fit_reason, persona, angle, angle_use, product, repeats groups). Then
   `validate.py "$OUT"` (checks keys, fit, and that every persona / angle id exists in taxonomy.json) and rerun
-  what it lists. `build.py` shows ids as "P1 · <research name>".
+  what it lists. `build.py` shows ids as "P1 · <name from the source>".
 - Before agents: tell the user the number of job accounts / carousels and the token estimate (Haiku ~8k per
   carousel read in full, ~2.9k cover-only, Sonnet ~4k per carousel of OCR text + ~10k per account) and wait for a
   go-ahead on big runs.
@@ -173,7 +189,7 @@ Writes `carousel-accounts.html`, `accounts.csv`, `publish_batches.json` (≤ 3 M
   carousels, total views, median, average, comments, saves, comment rate; then the integration block
   (product name + verbatim quotes with where they sit; 2 quotes on phones, up to 5 on laptops).
 - **Tabs** under the header: Carousel-first accounts / Single super carousels / Successful repeats.
-- Each account head carries a fit line: persona and research angle (from the agents) + one-line reason; the
+- Each account head carries a fit line: persona and angle (from the agents) + one-line reason; the
   panel adds "How to use for our product".
 - **Single super carousels** block: card per carousel (all slides in a scrollable strip, views, x to median,
   verbatim hook, formula, visual, fit, persona, angle). In niche first, then by views.

@@ -75,8 +75,8 @@ for h, a in analysis.items():
     ip = os.path.join(adir, f"{h}.integration.json")
     if os.path.exists(ip):
         a["quotes"] = json.load(open(ip)).get("quotes", [])
-# taxonomy.json (2026-10-28): personas and angles from the product research, by id. Agents write ids ("P1", "A3");
-# the page shows "P1 · <name as in the research>" so nothing is renamed or invented.
+# taxonomy.json (2026-10-28): personas and angles from the product context, by id. Agents write ids ("P1", "A3");
+# the page shows "P1 · <name as in the source>" so nothing is renamed or invented.
 _tx = os.path.join(OUT, "taxonomy.json")
 TX = {}
 if os.path.exists(_tx):

@@ -269,7 +269,7 @@ html { scroll-snap-type: y proximity; }
 .filter button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #0d1a12; }
 .filter button[aria-pressed="true"] b { color: #0d1a12; }
 .acct[hidden] { display: none; }
-/* 2026-10-27: block tabs, fit line (persona + research angle), super carousels and successful repeats */
+/* 2026-10-27: block tabs, fit line (persona + angle), super carousels and successful repeats */
 .tabs { display: flex; flex-wrap: wrap; gap: 4px 22px; border-bottom: 1px solid var(--line); }
 .tabs a { font: 600 14px var(--font-data); color: var(--fg); text-decoration: none; padding: 10px 0 9px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tabs a b { color: var(--muted); font-weight: 500; margin-left: 6px; }
@@ -562,10 +562,10 @@ document.addEventListener("click", e => {
 // Blocks: tabs, single super carousels, successful repeats (2026-10-27)
 { const S = DATA.supers || [], R = DATA.repeats || [];
   const fitTag = f => f ? `<span class="tag ${f === "in niche" ? "good" : f === "adjacent niche" ? "mid" : "bad"}">${esc(f)}</span>` : "";
-  const fitRows = c => `${c.persona && c.persona !== "none" ? `<div><dt>Persona</dt><dd>${esc(c.persona)}</dd></div>` : ""}${c.angle && c.angle !== "none" ? `<div><dt>Angle from research</dt><dd>${esc(c.angle)}</dd></div>` : ""}`;
+  const fitRows = c => `${c.persona && c.persona !== "none" ? `<div><dt>Persona</dt><dd>${esc(c.persona)}</dd></div>` : ""}${c.angle && c.angle !== "none" ? `<div><dt>Angle</dt><dd>${esc(c.angle)}</dd></div>` : ""}`;
   $("tabs").innerHTML = [["accounts", "Carousel-first accounts", A.length], ["supers", "Single super carousels", S.length], ["repeats", "Successful repeats", R.length]]
     .map(([id, l, n]) => `<a href="#${id}">${l}<b id="t-${id}">${n}</b></a>`).join("");
-  $("supers-rule").textContent = "Rule: " + DATA.block_rules.super + ". Text read slide by slide; fit, persona and angle decided against our product and research.";
+  $("supers-rule").textContent = "Rule: " + DATA.block_rules.super + ". Text read slide by slide; fit, persona and angle decided against our product and its audience.";
   $("repeats-rule").textContent = "Rule: " + DATA.block_rules.repeat + ".";
   $("supers-cards").innerHTML = S.length ? S.map(c => `<article class="card" data-grp="${esc(c.grp || "-")}" data-angle="${esc(c.angle || "none")}">
     <div class="top"><a href="${c.acc_url}" target="_blank" rel="noopener">@${esc(c.handle)} ↗</a>${fitTag(c.fit)}${c.mono ? `<span class="tag good">carousel-first</span>` : ""}${c.ocr_scope === "cover only" ? `<span class="tag mid" title="Only slide 1 was read">cover only</span>` : ""}${c.note ? `<span class="tag good">${esc(c.note)}</span>` : ""}</div>
@@ -626,7 +626,7 @@ document.addEventListener("click", e => {
   $("filter").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { st.f = b.dataset.f; paint(); } });
   if (angles.length) {
     $("afilter-w").hidden = false;
-    $("afilter").innerHTML = ["all", ...angles].map(x => `<button type="button" data-a="${esc(x)}" aria-pressed="false" title="${esc(x === "all" ? "All angles" : x === "none" ? "No research angle" : x)}">${x === "all" ? "All" : short(x)} <b></b></button>`).join("");
+    $("afilter").innerHTML = ["all", ...angles].map(x => `<button type="button" data-a="${esc(x)}" aria-pressed="false" title="${esc(x === "all" ? "All angles" : x === "none" ? "No matching angle" : x)}">${x === "all" ? "All" : short(x)} <b></b></button>`).join("");
     $("afilter").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { st.a = b.dataset.a; paint(); } });
   }
   if ((DATA.group_filter || []).length) {

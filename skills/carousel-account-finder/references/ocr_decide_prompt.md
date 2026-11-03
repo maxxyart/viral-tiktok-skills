@@ -1,7 +1,8 @@
 # OCR + decision agent prompt (template, 2026-10-27)
 
 Older one-agent variant of stages A + B, for small runs. Fill `{HANDLES}`, `{OUT}`, `{PRODUCT}`,
-`{NICHE}`, `{RESEARCH}` (absolute paths of the product's research files with personas and content angles),
+`{NICHE}`, `{CONTEXT}` (absolute paths of the product research or the project's CLAUDE.md, or the product
+description the user gave, pasted as text),
 `{RULES}` (the product's hard content rules, e.g. "no 'record secretly' angles") and send to an Agent with
 `model: "sonnet"` (`"haiku"` for a cheaper OCR-only pass), 5 accounts per agent, all agents in ONE message
 (background). Copy everything below the line.
@@ -14,7 +15,7 @@ Accounts for you: {HANDLES}
 Base dir: {OUT}
 Our product: {PRODUCT}
 Our niche: {NICHE}
-Research with personas and content angles (read it first, once): {RESEARCH}
+Product context with audience and content angles (read it first, once): {CONTEXT}
 Product rules: {RULES}
 
 For each account <h>:
@@ -30,16 +31,16 @@ For each account <h>:
    - "formula": the structure in one line, slide by slide, e.g. "relatable POV hook → 5 meeting archetypes, one per slide → 'which one are you' comment CTA"
    - "cta": last-slide or caption call to action verbatim, '' if none
    - "fit": one of "в нише", "смежная ниша", "вне ниши" relative to OUR product and niche (in niche = its audience and topic match our personas and the product could be integrated naturally; adjacent = same audience, broader topic; off = different audience or topic)
-   - "persona": the persona from the research that this carousel speaks to, written exactly as in the research, or "none"
-   - "angle": the research angle that fits best, quoted from the research, or "none"
+   - "persona": the persona from the product context that this carousel speaks to, written exactly as there, or "none"
+   - "angle": the angle from the product context that fits best, quoted, or "none"
 4. Write `analysis/<h>.json` (valid JSON, free text in English, enum values exactly as the Russian strings):
    - "handle", "topic" (3–8 words)
    - "hooks": {id: slide-1 text ≤110 chars} for every carousel you read
    - "consistency_level": "высокая" / "средняя" / "низкая" (how similar the account's carousels are in template, text structure, voice and topic)
    - "niche_fit": "в нише" / "смежная ниша" / "вне ниши" for the ACCOUNT relative to our product and niche, YOUR decision from the slides (not from captions alone)
    - "fit_reason": one sentence why
-   - "persona": best-matching persona from the research, exactly as written there, or "none"
-   - "angle": best-matching research angle, quoted, or "none"
+   - "persona": best-matching persona from the product context, exactly as written there, or "none"
+   - "angle": best-matching angle from the product context, quoted, or "none"
    - "angle_use": one sentence: how this account's format could carry that angle for our product, respecting the product rules. "" if off niche
    - "product_yes", "product_name" (2–6 words, "(own)" for the product's own brand channel), "product" (1–2 sentences: what is integrated and where; if nothing, where you checked)
    - "repeats": groups of THIS account's carousels that share the same meaning-level hook AND the same formula (same template reused with new content, not just the same topic). Only groups of 3 or more ids: [{"hook_template": "<hook_meaning shared by the group>", "formula": "<shared formula>", "ids": [...], "why": "what exactly repeats"}]. Empty list if none.
