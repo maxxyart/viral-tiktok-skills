@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Vendor shared source into independently installable skill folders; --check for CI."""
+"""Vendor shared source into independently installable skill folders; --check for CI.
+
+Only social-account-short-analysis uses src/social since v2.1.0: social-account-hook-analysis
+ships its own scripts, and its v2.0.0 copy is frozen in legacy/skills/social-account-hook-analysis-v2.
+"""
 import argparse
 from pathlib import Path
 import shutil
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = ("social-account-short-analysis", "social-account-hook-analysis")
+SKILLS = ("social-account-short-analysis",)
 SCRIPTS = ("social.py", "metrics.py", "report.py")
 REFS = ("collection.md", "metrics.md", "reporting.md")
 

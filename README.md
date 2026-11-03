@@ -5,7 +5,7 @@ Research **Instagram and TikTok posts** with ScrapeCreators, turn observed hooks
 | Skill | Outcome |
 |---|---|
 | **[Social Account Short Analysis (Viral Camp)](skills/social-account-short-analysis/SKILL.md)** | CSV + concise HTML: views and comments totals/means/medians, comment rates, publication-month cohorts, top five with virality multiples, topic and offer. |
-| **[Social Account Hook Analysis (Viral Camp)](skills/social-account-hook-analysis/SKILL.md)** | Latest 60 videos by default; covers and sheets of 20; optional real-audio transcription; text formulas × visuals × character roles; interactive local HTML with a sortable all-video table, linked evidence and a controlled test plan. |
+| **[Social Account Hook Analysis (Viral Camp)](skills/social-account-hook-analysis/SKILL.md)** | Every cover of the account when it has ≤150 posts (else the latest 50, or `--all` / `--since`); TikTok and Instagram reels, carousels and photos; frame 0 for videos; text formula × visual format patterns, themes and product fit; posts younger than 7 days kept out of medians; HTML report with virals slide by slide, product adaptations and a sortable all-posts grid, checked in headless Chrome; CSV export. |
 | **[Social Post Comment Analysis (Viral Camp)](skills/social-post-comment-analysis/SKILL.md)** | Bounded Instagram/TikTok comment collection, CSV, semantic audience themes, root/reply statistics and product experiments. |
 | **[Carousel Account Finder (Viral Camp)](skills/carousel-account-finder/SKILL.md)** | TikTok accounts that grow on carousels in your niche: keywords drafted from your research or CLAUDE.md and approved by you, Top search and feed screening, super carousels and repeated winning formulas, verbatim slide OCR and niche fit by sub-agents, one HTML page with an account per screen. |
 | **[Carousel Account Patterns](skills/carousel-account-patterns/SKILL.md)** | Research recurring photo-post formulas across a TikTok account. |
@@ -102,17 +102,19 @@ Meta shows commercial advertisers' impressions only as a rank, so the impression
 ### Requirements
 
 - **Python 3.10+**. Short analysis uses only the standard library.
-- **Pillow** for hook cover downloads/contact sheets: `python3 -m pip install Pillow`. Optional `pillow-heif` enables HEIC decoding. Prefer a virtual environment where appropriate.
+- **Pillow** for hook report image compression: `python3 -m pip install Pillow` (falls back to macOS `sips` with much bigger files). Prefer a virtual environment where appropriate.
+- **ffmpeg** for the hook skill: video covers are frame 0 of the video, the frame viewers see in the feed, not the grid thumbnail.
+- **Google Chrome** (or Chromium / Brave, or `CHROME=/path`) for the hook report's layout check.
 - A connected **ScrapeCreators MCP**, or authenticated official `scrapecreators` CLI, or `SCRAPE_CREATORS_API_KEY` in the environment for REST fallback. [Provider integration docs](https://docs.scrapecreators.com/integrations/mcp/).
-- An agent capable of reading images for hook research. Audio transcription is optional; it requires `ffmpeg` and a Gemini API key. Cover-only reports do not need a Gemini/xAI key.
+- An agent capable of reading images for hook research. Cover reading needs no Gemini/xAI key; FAST mode (`ocr_covers.py`) uses `GOOGLE_API_KEY` with `XAI_API_KEY` as fallback.
 
-Use the requested transport. CLI/REST is never described as MCP. Raw MCP pages can be imported without repeating API requests. No automatic key search through shell configuration and no automatic credit purchases.
+Short analysis: use the requested transport; CLI/REST is never described as MCP; raw MCP pages can be imported without repeating API requests; no automatic key search through shell configuration. Hook analysis calls the ScrapeCreators REST API and reads `SCRAPE_CREATORS_API_KEY` from the environment, or from an `export` line in `~/.zshenv`, `~/.zshrc` or `./.env`. Neither skill buys credits.
 
 ## Ask the agent
 
 > Use $social-account-short-analysis to analyze all available Reels from this Instagram account. Save CSV and a concise HTML report.
 
-> Сделай разбор 60 последних роликов TikTok: обложки по 20, точные хуки, формулы × визуал, рекомендации для моего продукта. Используй $social-account-hook-analysis и ScrapeCreators MCP.
+> Сделай анализ хуков TikTok-аккаунта @handle: все обложки, формулы × визуал, темы, что взять для моего продукта, отчёт и CSV. Используй $social-account-hook-analysis.
 
 > Keep formulas and quotations in the reference's original language. Attach 1–2 source links and covers per formula.
 
@@ -133,35 +135,45 @@ python3 src/social/social.py collect https://www.tiktok.com/@ACCOUNT \
 python3 src/social/social.py collect ACCOUNT --platform instagram --count 60 \
   --pages-dir /path/to/raw-pages --fetched-at 2026-09-15T12:00:00Z \
   --out runs/imported-ACCOUNT
-
-# Hook analysis: build image evidence, then let the agent inspect and write cards.json
-python3 src/social/covers.py --out runs/instagram-ACCOUNT
-# Only if audio was requested: preview scope, then transcribe actual video audio.
-# This reuses saved feed pages and does not call ScrapeCreators again.
-python3 src/social/audio_transcribe.py --out runs/instagram-ACCOUNT --dry-run
-python3 src/social/audio_transcribe.py --out runs/instagram-ACCOUNT
-python3 src/social/covers.py --out runs/instagram-ACCOUNT --sheets-only
-# The agent inspects covers/audio and writes cards.json, including uncertain rows.
-python3 src/social/social.py analyze --out runs/instagram-ACCOUNT \
-  --cards runs/instagram-ACCOUNT/cards.json
-
-# Agent writes grounded insights.json; the renderer does not invent findings
-python3 skills/social-account-hook-analysis/scripts/hook_report.py --out runs/instagram-ACCOUNT \
-  --insights runs/instagram-ACCOUNT/insights.json --lang ru
 ```
 
-`--max-pages` defaults to 100. A cap or collection failure returns exit code **2** with partial artifacts; it does not mean all videos were collected. The agent must inspect `snapshot.json`. The feed helper supports latest-N and all-available scope; date-range requests require an ordered/exhaustive capture, filtering and recalculating the cohort as described in the skill. The audio helper supports both TikTok and Instagram and caches each selected video; `--dry-run` makes no downloads or Gemini calls. It does not perform full-video visual analysis. `--lang ru|en` selects the hook report's main headings and navigation; standard metric labels remain in English, and narrative language comes from the agent's insights. The shared `src/social/report.py` remains the concise renderer for the short-analysis skill.
+Hook analysis (`H=skills/social-account-hook-analysis/scripts`, or the installed skill's `scripts`):
+
+```bash
+# Feed + covers (frame 0 for videos) + slides and top comments of the 6 best carousels.
+# No --count: the whole account if it has <=150 posts, else the latest 50 with a warning.
+python3 $H/fetch_covers.py ACCOUNT --platform tiktok --out-dir runs/hooks-ACCOUNT --slides-top 6
+#   Instagram carousels + photos + reels: --platform instagram --ig-source posts (metric = likes)
+#   A period: --since 2026-05-01; a fixed size: --count 60; everything: --all
+
+# The agent reads every cover and writes cards.json, clusters.json, labels.json and
+# carousels/NN/slides.json (schemas in SKILL.md), then:
+python3 $H/pattern_stats.py runs/hooks-ACCOUNT/meta.json runs/hooks-ACCOUNT/clusters.json \
+  --cards runs/hooks-ACCOUNT/cards.json --labels runs/hooks-ACCOUNT/labels.json \
+  --out runs/hooks-ACCOUNT/report.json
+python3 $H/render_report.py runs/hooks-ACCOUNT --out runs/hooks-ACCOUNT/report \
+  --insights runs/hooks-ACCOUNT/insights.json --lang ru
+python3 $H/snapshot_report.py runs/hooks-ACCOUNT/report      # 390 px + 1280 px screenshots, exit 2 on overflow
+python3 $H/export_csv.py runs/hooks-ACCOUNT --save-to research/ACCOUNT-hooks
+```
+
+`--max-pages` defaults to 100. A cap or collection failure returns exit code **2** with partial artifacts; it does not mean all videos were collected. The agent must inspect `snapshot.json`. The feed helper supports latest-N and all-available scope; date-range requests require an ordered/exhaustive capture, filtering and recalculating the cohort as described in the skill. The shared `src/social/report.py` remains the concise renderer for the short-analysis skill. The v2.0.0 hook helpers (`covers.py` contact sheets, `audio_transcribe.py`, `hook_report.py`) are kept in `src/social` and `legacy/skills/social-account-hook-analysis-v2/`.
 
 ## Artifacts and metrics
 
-- `report.html`: portable, self-contained hook report with embedded covers, evidence map, linked examples and searchable/sortable table of every selected video.
-- `videos.csv`, `months.csv`: exact selected cohort and publication-month calculations.
-- With requested audio: `transcripts.json`, `audio_usage.json`, and `videos_with_transcripts.csv` with original-language full speech and separately transcribed first three seconds.
-- `analysis.json`: reproducible metrics and hook patterns; `cards.json`: agent's visual annotations.
-- `snapshot.json`, `raw/`, `videos.json`, `fetched-videos.json`: provenance and auditable scope.
-- `covers/`, `sheets/`: original-ratio cover evidence and labeled batches of 20.
+Short analysis:
 
-Comment rate = comments/views × 100. The report distinguishes mean, median and weighted rates, with missing-data coverage. Virality is a **view multiple of the selected cohort median**, not a prediction, probability, or shares rate. Publication-month totals are cumulative views at capture time, not views earned during each month. Instagram feed limitations, missing captions and Instagram-only play counts are disclosed. Single-example patterns remain hypotheses; n ≥ 3 is an observation, not causal proof.
+- `videos.csv`, `months.csv`: exact selected cohort and publication-month calculations.
+- `analysis.json`: reproducible metrics; `snapshot.json`, `raw/`, `videos.json`, `fetched-videos.json`: provenance and auditable scope.
+
+Hook analysis:
+
+- `meta.json` (sample mode, metric, profile, per-post metrics and cover paths), `covers/`, `thumbs/`, `carousels/NN/` (slides, `post.json` with top comments, `slides.json` with verbatim slide texts).
+- `cards.json`, `clusters.json`, `labels.json`: the agent's cover reading, patterns, themes and product fit; `report.json`: every number of the report, computed by `pattern_stats.py`.
+- `report/index.html` + `covers/` + `slides/`: opens locally, or is published as a claude.ai Artifact in batches; `report/_check/`: layout screenshots, never published.
+- `<handle>_posts.csv`: one row per post with metrics, × median, ER, hook, pattern, labels, top comment and slide texts.
+
+Comment rate = comments/views × 100. The report distinguishes mean, median and weighted rates, with missing-data coverage. Virality is a **view multiple of the selected cohort median**, not a prediction, probability, or shares rate. Publication-month totals are cumulative views at capture time, not views earned during each month. Instagram feed limitations, missing captions and Instagram-only play counts are disclosed. Single-example patterns remain hypotheses; n ≥ 3 is an observation, not causal proof. Hook analysis: ER = (likes + comments + shares + saves) / views × 100, posts younger than 7 days stay out of every median, groups under 3 posts are flagged, and Instagram carousel/photo runs compare likes because the feed has no views for them.
 
 ## Upgrade from the old skills
 
@@ -169,6 +181,8 @@ Comment rate = comments/views × 100. The report distinguishes mean, median and 
 |---|---|
 | `tiktok-account-short-analysis` | `social-account-short-analysis` |
 | `tiktok-account-hook-analysis` | `social-account-hook-analysis` |
+
+v2.1.0 replaced the v2.0.0 hook implementation (sheets of 20, audio transcription, self-contained HTML) with the version above; v2.0.0 is frozen in `legacy/skills/social-account-hook-analysis-v2/`. See the [v2.1.0 notes](docs/releases/v2.1.0.md).
 
 Install the new folders and retire the two old installed skills to avoid duplicate routing. Their previous instructions and Python scripts remain under `legacy/skills/` for reference, with `INSTRUCTIONS.md` instead of discoverable `SKILL.md`. The previous Node pipelines remain in `src/scripts/` and are accessible as `npm run legacy:short-analysis` / `legacy:hook-analysis`; they are not the recommended path.
 

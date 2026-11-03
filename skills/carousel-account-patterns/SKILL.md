@@ -63,7 +63,7 @@ in one thread pool (15 workers). Outputs:
 
 Only a short summary hits stdout. If it warns "only X carousels available", proceed
 with what exists and note it in the report. If 0 carousels — the account is video-only;
-tell the user and suggest `tiktok-account-hook-analysis` instead.
+tell the user and suggest `social-account-hook-analysis` instead.
 
 ### Step 2 — read digest, discover patterns (Claude's actual job)
 

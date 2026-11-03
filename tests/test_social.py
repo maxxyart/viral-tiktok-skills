@@ -7,7 +7,11 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src/social"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "skills/social-account-hook-analysis/scripts"))
+# social/metrics/report: shared source vendored into the short-analysis skill;
+# hook_report/covers/audio_transcribe: the v2.0.0 hook skill, frozen under legacy/ since v2.1.0
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "legacy/skills/social-account-hook-analysis-v2/scripts"))
+sys.path.insert(0, str(ROOT / "skills/social-account-short-analysis/scripts"))
 from metrics import analyze, distribution, enrich, summarize
 from social import collect, normalize, page_data, parse_account, timestamp, csv_cell
 from report import render
