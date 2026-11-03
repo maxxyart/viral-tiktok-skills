@@ -55,9 +55,13 @@ carousels keep getting views. One viral carousel on a video account does not cou
 | Carousels in window | ≥ 5 (fewer = one-hit account) | `--min-carousels` |
 | Page cap: search pages per query / feed pages per account (10 posts each) | 5 / 5 | `search.py --pages`, `screen.py --max-pages` |
 | Single super carousel (any screened account) | ≥ 100,000 views and ≥ 5× account median (all posts in window) | `candidates.py --super-views --super-x` |
-| Successful repeat | ≥ 3 carousels, same meaning-level hook + formula, each ≥ 10,000 views, group median ≥ 2× account median | `candidates.py --rep-views --rep-x` |
+| Successful repeat (any screened account) | ≥ 3 carousels, same meaning-level hook + formula, each ≥ 10,000 views, group median ≥ 2× account median | `candidates.py --rep-views --rep-x` |
 | OCR + visual | Haiku sub-agents, every slide verbatim | `references/ocr_prompt.md` |
 | Niche fit (в нише / смежная ниша / вне ниши), persona, angle, repeat groups | Sonnet sub-agents on the OCR text; persona and angle only as ids from `taxonomy.json` built from the product context | `references/decide_prompt.md` |
+
+Share, median, total and carousel count select block 1 (carousel-first accounts) only. Blocks 2 and 3 take
+every screened account, video accounts included: a single super carousel or a repeated formula counts
+wherever it appears.
 
 The 40% share (not 50%) is deliberate: strong carousel accounts often mix in videos. One reference
 account ran ~44% carousels, every one of them above 50k views.
