@@ -10,7 +10,7 @@ Deliver a concise, evidence-backed account overview in the user's language. Supp
 ## Resolve scope
 
 - Accept a profile URL or handle. Infer platform from a URL; ask if a bare handle has no platform context. A `/reels/` suffix is not the handle.
-- Default to the **latest 60 videos** when scope is unspecified. If the user requests all videos, use all available feed videos and paginate to an explicit end. Honor an explicit number/date range; never quietly replace “all” with 60.
+- Default to the **latest 60 videos** when scope is unspecified. If the user requests all videos, use all available feed videos and paginate to an explicit end. Honor an explicit number/date range (`--count N`, `--since YYYY-MM-DD`); never quietly replace “all” with 60.
 - TikTok photo posts and Instagram carousels are excluded from a video cohort. If the user asks for all post types, disclose the distinction and use appropriate post endpoints; do not count carousel cover exposure as video plays.
 - Read relevant existing project/product context for tailored recommendations. Do not assume the user owns the analyzed account or imports its niche. Generic account research needs no product intake.
 
@@ -25,6 +25,7 @@ The scripts resolve relative to this `SKILL.md` directory, not a hard-coded `~/.
 ```bash
 python3 <skill-dir>/scripts/social.py collect https://www.instagram.com/ACCOUNT/reels/ --count 60 --transport cli --out <run-dir>
 python3 <skill-dir>/scripts/social.py collect https://www.tiktok.com/@ACCOUNT --all --transport api --out <run-dir>
+python3 <skill-dir>/scripts/social.py collect https://www.tiktok.com/@ACCOUNT --since 2026-05-01 --transport api --out <run-dir>
 ```
 
 MCP results can enter the same pipeline without a second paid scrape:

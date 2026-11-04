@@ -28,8 +28,8 @@ collecting views, so every median leaves them out; hits (≥5× median) still in
 
 Metric: meta.metric — "views", or "likes" for Instagram posts mode (no views for carousels
 and photos). Keys keep their names (medianViews = median of the metric).
-ER = (likes + comments + shares + saves) / views, the formula of
-social-account-short-analysis; null when the metric is not views.
+ER = (likes + comments + shares + saves) / views (social-account-short-analysis reports
+comment rate instead); null when the metric is not views.
 
 Validation is STRICT: every video index 0..N-1 must appear exactly once across
 patterns + unassigned. Duplicates or missing indexes → exit 1 with the list,

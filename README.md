@@ -157,7 +157,7 @@ python3 $H/snapshot_report.py runs/hooks-ACCOUNT/report      # 390 px + 1280 px 
 python3 $H/export_csv.py runs/hooks-ACCOUNT --save-to research/ACCOUNT-hooks
 ```
 
-`--max-pages` defaults to 100. A cap or collection failure returns exit code **2** with partial artifacts; it does not mean all videos were collected. The agent must inspect `snapshot.json`. The feed helper supports latest-N and all-available scope; date-range requests require an ordered/exhaustive capture, filtering and recalculating the cohort as described in the skill. The shared `src/social/report.py` remains the concise renderer for the short-analysis skill. The v2.0.0 hook helpers (`covers.py` contact sheets, `audio_transcribe.py`, `hook_report.py`) are kept in `src/social` and `legacy/skills/social-account-hook-analysis-v2/`.
+`--max-pages` defaults to 100. A cap or collection failure returns exit code **2** with partial artifacts; it does not mean all videos were collected. The agent must inspect `snapshot.json`. The feed helper supports latest-N, all-available and `--since YYYY-MM-DD` scope; `--since` reads two pages past the first unpinned video older than the date, then keeps only videos published on or after it. The shared `src/social/report.py` remains the concise renderer for the short-analysis skill. The v2.0.0 hook helpers (`covers.py` contact sheets, `audio_transcribe.py`, `hook_report.py`) are kept in `src/social` and `legacy/skills/social-account-hook-analysis-v2/`.
 
 ## Artifacts and metrics
 

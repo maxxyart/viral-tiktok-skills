@@ -246,8 +246,8 @@ labels.json field (restrict with `--split-by`).
   stderr `window:` line says how many posts are in it.
 - Every pattern and split bucket carries `belowMinimum` (< 3 posts); the renderer draws
   those bars thin and marks them «мало данных». Do not draw conclusions from them.
-- ER = (likes + comments + shares + saves) / views × 100, the same formula as
-  `social-account-short-analysis` (ex `tiktok-account-short-analysis`), so the two skills give the same numbers for one account.
+- ER = (likes + comments + shares + saves) / views × 100. `social-account-short-analysis` reports
+  comment rate (comments / views × 100) and virality instead of ER, so compare those, not ER, across the two skills.
   In likes mode (Instagram posts) ER is `null`: there are no views to divide by. For "selfie vs place/landscape" use `background`: `has_person` also counts
 people in the background of a church or landscape shot. Compare every category on its own:
 lumping "no person" covers together hid that church covers beat selfies (1870 vs 1440)

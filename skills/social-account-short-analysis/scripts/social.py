@@ -191,7 +191,7 @@ def fetch_api(path, params, transport):
         time.sleep(2 ** attempt)
 
 
-def collect(handle, platform, getter, out, count=60, all_videos=False, max_pages=100, transport="mcp-import", region=None, fetched_at=None):
+def collect(handle, platform, getter, out, count=60, all_videos=False, max_pages=100, transport="mcp-import", region=None, fetched_at=None, since=None):
     selected, seen_cursors, dates, errors = {}, set(), [], []
     cursor, duplicates, excluded, exhausted, order_issue = None, 0, 0, False, False
     extra_after_target, stop, pages = 0, "page_limit", 0
@@ -245,8 +245,14 @@ def collect(handle, platform, getter, out, count=60, all_videos=False, max_pages
         if not new_count and any(row is not None for row in new_rows):
             stop = "no_new_ids"
             break
-        # Read two additional pages beyond N. Unknown/reordered dates force exhaustion.
-        if not all_videos and len(selected) >= count and not order_issue:
+        # Read two additional pages beyond N (or beyond the first unpinned video older
+        # than --since). Unknown/reordered dates force exhaustion.
+        if since and not order_issue and dates and dates[-1] < since:
+            extra_after_target += 1
+            if extra_after_target >= 3:
+                stop = "since_boundary_checked"
+                break
+        elif not all_videos and not since and len(selected) >= count and not order_issue:
             extra_after_target += 1
             if extra_after_target >= 3:
                 stop = "latest_boundary_checked"
@@ -254,16 +260,18 @@ def collect(handle, platform, getter, out, count=60, all_videos=False, max_pages
         cursor = nxt
         seen_cursors.add(str(cursor))
     ordered = sorted(selected.values(), key=lambda r: (r["published_at_utc"] or "", r["id"]), reverse=True)
-    rows = ordered if all_videos else ordered[:count]
+    rows = [r for r in ordered if (r["published_at_utc"] or "") >= since] if since else ordered if all_videos else ordered[:count]
     dated = all(r["published_at_utc"] for r in ordered)
-    scope_complete = exhausted or (stop == "latest_boundary_checked" and dated)
+    scope_complete = exhausted or (stop in ("latest_boundary_checked", "since_boundary_checked") and dated)
+    limitations = (["Instagram Reels endpoint may omit pinned reels; scope is available feed, not guaranteed full account.", "Views represent Instagram only, not combined Instagram + Facebook.", "Captions may require post-detail enrichment."] if platform == "instagram" else [])
+    if since and not dated:
+        limitations.append(f"{sum(not r['published_at_utc'] for r in ordered)} videos have no publication date and are left out of the --since cohort.")
     snapshot = {"schema_version": 1, "platform": platform, "handle": handle, "provider": "ScrapeCreators",
-                "transport": transport, "fetched_at_utc": stamp, "scope": "all_available_videos" if all_videos else "latest_videos",
-                "requested_count": None if all_videos else count, "selected_count": len(rows), "fetched_unique_count": len(ordered),
+                "transport": transport, "fetched_at_utc": stamp, "scope": "since_date" if since else "all_available_videos" if all_videos else "latest_videos",
+                "requested_count": None if all_videos or since else count, "since_utc": since, "selected_count": len(rows), "fetched_unique_count": len(ordered),
                 "pages": pages, "excluded_nonvideo_count": excluded, "duplicates_removed": duplicates,
                 "source_exhausted": exhausted, "scope_complete": scope_complete, "latest_order_verified": dated and scope_complete,
-                "observed_order_issue": order_issue, "stop_reason": stop, "errors": errors,
-                "limitations": (["Instagram Reels endpoint may omit pinned reels; scope is available feed, not guaranteed full account.", "Views represent Instagram only, not combined Instagram + Facebook.", "Captions may require post-detail enrichment."] if platform == "instagram" else [])}
+                "observed_order_issue": order_issue, "stop_reason": stop, "errors": errors, "limitations": limitations}
     rows = [{**r, "recent_rank": i + 1} for i, r in enumerate(rows)]
     write_json(out / "fetched-videos.json", ordered)
     write_json(out / "snapshot.json", snapshot)
@@ -311,6 +319,7 @@ def main():
     scope = fetch.add_mutually_exclusive_group()
     scope.add_argument("--count", type=int, default=60)
     scope.add_argument("--all", action="store_true")
+    scope.add_argument("--since", help="YYYY-MM-DD: every video published on or after this UTC date")
     fetch.add_argument("--transport", choices=("api", "cli"), default="api")
     fetch.add_argument("--pages-dir", type=Path, help="Replay page-*.json from MCP or a saved API run; no network")
     fetch.add_argument("--import-transport", choices=("mcp", "cli", "api"), default="mcp")
@@ -327,6 +336,9 @@ def main():
         return
     if args.count <= 0 or args.max_pages <= 0:
         parser.error("count/max-pages must be positive")
+    since = timestamp(args.since) if args.since else None
+    if args.since and (not since or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.since)):
+        parser.error("--since expects YYYY-MM-DD")
     handle, platform = parse_account(args.account, args.platform)
     if args.out.exists() and any(args.out.iterdir()):
         parser.error("Use a new output directory to preserve prior snapshots")
@@ -348,7 +360,7 @@ def main():
             write_json(args.out / "profile.json", fetch_api(f"/v1/{platform}/profile", {"handle": handle}, args.transport))
         except (ValueError, OSError, subprocess.SubprocessError):
             write_json(args.out / "profile-status.json", {"status": "unavailable"})
-    status = collect(handle, platform, getter, args.out, args.count, args.all, args.max_pages, transport, args.region, timestamp(args.fetched_at) if args.fetched_at else None)
+    status = collect(handle, platform, getter, args.out, args.count, args.all, args.max_pages, transport, args.region, timestamp(args.fetched_at) if args.fetched_at else None, since)
     print(json.dumps(status, ensure_ascii=False, indent=2))
     if not status["scope_complete"]:
         sys.exit(2)

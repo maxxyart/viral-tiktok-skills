@@ -71,6 +71,17 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(snap["pages"], 3)
         self.assertEqual(snap["stop_reason"], "latest_boundary_checked")
 
+    def test_since_stops_two_pages_after_the_date_boundary(self):
+        day = 86400
+        pinned = tt("pin", when=1767225600 - 400 * day, is_top=True)  # old pinned first must not stop the feed
+        pages = [{"aweme_list": ([pinned] if i == 0 else []) + [tt(i, when=1767225600 - i * 10 * day)], "has_more": 1, "max_cursor": str(i)} for i in range(8)]
+        out, snap = self.run_feed(pages, since="2025-12-12T00:00:00Z")  # posts 0, 1, 2 are on or after it
+        rows = json.loads((out / "videos.json").read_text(encoding="utf-8"))
+        self.assertEqual([r["id"] for r in rows], ["0", "1", "2"])
+        self.assertEqual((snap["stop_reason"], snap["pages"], snap["scope"]), ("since_boundary_checked", 6, "since_date"))
+        self.assertTrue(snap["scope_complete"])
+        self.assertIsNone(snap["requested_count"])
+
     def test_reordered_feed_does_not_stop_at_n(self):
         pages = [{"aweme_list": [tt(i, when=i + 100)], "has_more": 0 if i == 4 else 1, "max_cursor": str(i)} for i in range(5)]
         out, snap = self.run_feed(pages, count=1)

@@ -40,7 +40,7 @@ Deduplicate by stable platform video ID; sort by full publication timestamps, th
 
 Stop when the source explicitly says no more. For latest N, an observed chronological boundary can finish the available-feed scope earlier. Missing/looping cursors, repeated pages, empty pages with more/unknown state, schema errors, auth/credit errors and max-page limits produce partial status. “No more feed pages” still does not prove the provider exposes deleted/private/pinned content.
 
-Default max pages = 100, overridable. It is a safety cap, not an implicit claim of all-history completion. If it is reached, disclose progress and continue with a deliberate larger limit or a narrower user-approved scope. Don't silently truncate “all”. Avoid ending a date-range scrape after one old pinned video; collect an ordered boundary or exhaust, then filter and recalculate the entire baseline.
+Default max pages = 100, overridable. It is a safety cap, not an implicit claim of all-history completion. If it is reached, disclose progress and continue with a deliberate larger limit or a narrower user-approved scope. Don't silently truncate “all”. Avoid ending a date-range scrape after one old pinned video; collect an ordered boundary or exhaust, then filter and recalculate the entire baseline. `--since YYYY-MM-DD` does exactly this: it reads two more pages after the first unpinned video older than the date (stop reason `since_boundary_checked`) and keeps only videos published on or after it.
 
 Use a fresh output directory per capture. No silent merging of old metrics with fresh rows. A resume/replay uses saved raw pages and their capture provenance. Compare historical metrics only when both dated snapshots actually exist.
 

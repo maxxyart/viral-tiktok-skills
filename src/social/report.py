@@ -45,7 +45,7 @@ def render(out, insights=None, lang="en"):
     stats, rows = load(out / "analysis.json"), load(out / "analyzed-videos.json")
     snap, overall = stats["snapshot"], stats["overall"]
     parts = []
-    parts.append(f'<header><small>VIRAL CAMP · {esc(snap["platform"].upper())}</small><h1>@{esc(snap["handle"])}</h1><p>Social account {"hook" if "patterns" in stats else "short"} analysis</p><p>{snap["selected_count"]} videos · {esc(snap["scope"])} · Captured {esc(snap["fetched_at_utc"])} · ScrapeCreators / {esc(snap["transport"])}</p></header>')
+    parts.append(f'<header><small>VIRAL CAMP · {esc(snap["platform"].upper())}</small><h1>@{esc(snap["handle"])}</h1><p>Social account {"hook" if "patterns" in stats else "short"} analysis</p><p>{snap["selected_count"]} videos · {esc(snap["scope"])}{" " + esc(snap["since_utc"][:10]) if snap.get("since_utc") else ""} · Captured {esc(snap["fetched_at_utc"])} · ScrapeCreators / {esc(snap["transport"])}</p></header>')
     limitations = snap.get("limitations", []) + ["Monthly figures are snapshot totals grouped by publication month, not views earned during that month.", "Views / cohort median is a virality multiplier, not a share rate or probability."]
     if not snap["scope_complete"]:
         parts.append(f'<aside>PARTIAL COLLECTION — {esc(snap["stop_reason"])}. Do not interpret this as the whole requested account.</aside>')
