@@ -91,6 +91,7 @@ def build_rows(W):
             "shares": v.get("shares"), "saves": v.get("saves"),
             "x_median": round(val / med, 2) if med else None,
             "save_rate": pct(v.get("saves") or 0, views), "share_rate": pct(v.get("shares") or 0, views),
+            "comment_rate": pct(v.get("comments") or 0, views) if metric == "views" else None,
             "er": pct(eng, views) if metric == "views" else None,
             "slides": v.get("slides"), "kind": v.get("kind") or ("carousel" if v.get("isCarousel") else "video"),
             "is_pinned": v.get("isPinned"),

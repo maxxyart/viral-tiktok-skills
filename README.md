@@ -105,6 +105,7 @@ Meta shows commercial advertisers' impressions only as a rank, so the impression
 - **Pillow** for hook report image compression: `python3 -m pip install Pillow` (falls back to macOS `sips` with much bigger files). Prefer a virtual environment where appropriate.
 - **ffmpeg** for the hook skill: video covers are frame 0 of the video, the frame viewers see in the feed, not the grid thumbnail.
 - **Google Chrome** (or Chromium / Brave, or `CHROME=/path`) for the hook report's layout check.
+- **macOS with `swiftc`** (Xcode command line tools) only for the hook skill's slide table (Step 3b): `fast_slides.py` compiles a small Apple Vision OCR helper on first use. Haiku sub-agents read the slides; the OCR is a free draft and cross-check.
 - A connected **ScrapeCreators MCP**, or authenticated official `scrapecreators` CLI, or `SCRAPE_CREATORS_API_KEY` in the environment for REST fallback. [Provider integration docs](https://docs.scrapecreators.com/integrations/mcp/).
 - An agent capable of reading images for hook research. Cover reading needs no Gemini/xAI key; FAST mode (`ocr_covers.py`) uses `GOOGLE_API_KEY` with `XAI_API_KEY` as fallback.
 

@@ -3,12 +3,15 @@ name: social-account-hook-analysis
 description: >
   Cover hook analysis for a TikTok or Instagram account (reels, or carousels + photos).
   Fetches the whole account when it has ≤150 posts (else the latest 50, or --all /
-  --since) plus slides and top comments of the best carousels; covers are read natively
-  (Claude or parallel Sonnet subagents), Claude clusters hooks as text formula × visual
+  --since) plus slides and top comments of the best carousels; covers are read by
+  parallel Sonnet subagents, Claude clusters hooks as text formula × visual
   format and labels themes + product fit, Python computes the stats (young posts kept out
-  of medians, small groups flagged) and renders an HTML / Artifact report: virals slide by
+  of medians, a pattern needs 3+ posts) and renders an HTML / Artifact report: virals slide by
   slide, product adaptations, sortable all-posts grid, checked in headless Chrome. Exports
-  a CSV. FAST mode: a cheap vision model drafts cards, Claude always clusters. Triggers:
+  a CSV. FAST mode: a cheap vision model drafts cards, Claude always clusters. Slide
+  table: Haiku subagents read text and picture of every carousel slide into one table
+  (Apple Vision OCR as a free cross-check), the main session analyses the table and never
+  opens images. Triggers:
   "hook analysis tiktok", "tiktok cover analysis", "analyze tiktok hooks",
   "instagram hook analysis", "reels hook analysis", "cover hook analysis",
   "анализ хуков тикток", "анализ обложек тикток", "хук анализ тикток",
@@ -37,7 +40,12 @@ screenshots; native reading assigned 100% and found format-level patterns
 - `SCRAPE_CREATORS_API_KEY` (or `SCRAPECREATORS_API_KEY`) in the environment, or `--env-file FILE`
   on `fetch_covers.py` / `fetch_slides.py` / `ocr_covers.py`; shell configs are never searched
 - Bundled scripts (`scripts/`): `fetch_covers.py`, `fetch_slides.py`, `pattern_stats.py`,
-  `render_report.py`, `snapshot_report.py`, `export_csv.py`, `ocr_covers.py`
+  `render_report.py`, `snapshot_report.py`, `export_csv.py`, `ocr_covers.py`,
+  `fast_slides.py` + `ocr_vision.swift` (Step 3b)
+- Step 3b only: macOS with `swiftc` (Xcode command line tools). `fast_slides.py` compiles
+  `ocr_vision.swift` (Apple Vision OCR + the macOS spell checker) on first use into
+  `~/.cache/social-account-hook-analysis/ocr_vision` and rebuilds it when the source changes;
+  `sheets` needs Pillow. No API key: OCR runs locally.
 - Pillow for `render_report.py` image compression (falls back to sips, much bigger files)
 - `ffmpeg` for frame 0 of video posts (without it videos fall back to the grid thumbnail)
 - Google Chrome (or Chromium / Brave, or `CHROME=/path`) for `snapshot_report.py`
@@ -46,10 +54,16 @@ screenshots; native reading assigned 100% and found format-level patterns
 
 ## Mode selection (who writes cards.json)
 
+**Images stay in subagents.** The main session (Opus) never Reads a cover or a slide: it
+works from `cards.json`, the slide table (`slides_table.csv`, Step 3b) and `report.json`.
+Max (2026-11-10): Haiku reads text and picture into a table, Opus analyses the patterns.
+That day two of three account runs whose main session opened slides overflowed its
+context twice. The one exception is the report check in Step 6 (small page screenshots).
+
 | Mode | When | Who reads covers | Who clusters |
 |------|------|-----------------|--------------|
-| **FAN-OUT** (default) | 30–120 covers | 2–4 parallel subagents, `model: "sonnet"`, ~25 covers each | Claude |
-| **NATIVE** | < 30 covers, or user wants the deepest read | Claude itself (Read tool) | Claude |
+| **FAN-OUT** (default) | up to 120 covers | 1–4 parallel subagents, `model: "sonnet"`, ~25 covers each | Claude |
+| **NATIVE** | only when the user asks Claude itself to look | Claude itself (Read tool) | Claude |
 | **FAST** | user says «быстро/дёшево/fast», or count > 120 | cheap vision model → cards | Claude |
 
 Never let the cheap model or a subagent do pattern discovery — clustering needs the
@@ -105,7 +119,7 @@ python3 ~/.claude/skills/social-account-hook-analysis/scripts/fetch_covers.py HA
   Carousels are unaffected: their cover is slide 1. Reading thumbnails distorts the stats, not
   only the hooks: on that account the dashboard thumbnail put #14 (11×) into the income-proof
   pattern and showed it at 6.3×; on frame 0 the same pattern is 1.4× and #14 belongs elsewhere.
-  If a cover looks off against the post, Read `thumbs/` and `covers/` side by side.
+  If a card looks off against the post, have a subagent compare `thumbs/` and `covers/`.
 - `--slides-top 6` (TikTok): `carousels/NN/slideK.jpg` + `carousels/NN/post.json` with the
   top-20 text comments for the 6 most viewed carousels. Add more later without re-fetching
   the feed: `fetch_slides.py "$WORK_DIR" --indexes 37,48`.
@@ -142,9 +156,10 @@ Card schema, index-aligned array (same as `ocr_covers.py`, plus background/has_p
 **FAN-OUT:** launch the subagents in ONE message (`subagent_type: "general-purpose"`,
 `model: "sonnet"`), each with an index range, the covers folder, the schema and field rules
 above, and an output path `$WORK_DIR/cards-part-K.json`; each replies with one line only
-(count + unreadable covers), never the cards. While they run, Read the slides in
-`carousels/NN/` of the hits (≥5× median, up to 4) yourself — that is where formulas come
-from — and write what you read to `carousels/NN/slides.json`, verbatim, typos kept:
+(count + unreadable covers), never the cards. In the same message start the slide table
+for the carousels (Step 3b): at least the hits (≥5× median), better all of them, since
+that is where formulas come from. It writes `carousels/NN/slides.json`, verbatim, typos
+kept:
 
 ```json
 [{"slide": 1, "text": "easy ways to\nunrot your brain\nto feel more present and productive",
@@ -159,13 +174,13 @@ printed under a viral); export_csv.py puts them in the `slide_texts` column. The
 python3 -c "import json,glob,sys; c=sorted((x for f in sorted(glob.glob(sys.argv[1]+'/cards-part-*.json')) for x in json.load(open(f))), key=lambda x:x['index']); json.dump(c, open(sys.argv[1]+'/cards.json','w'), ensure_ascii=False, indent=1); print(len(c), 'cards')" "$WORK_DIR"
 ```
 
-Check the count equals N. Before clustering, Read the covers of the top-10 by views and of
-any card that looks off — you need to see the hits, not only their cards. Sonnet
-occasionally "fixes" an author typo despite the rule (1 of 10 typos on the test run), so
-compare the hooks of the covers you Read with their cards.
+Check the count equals N. Before clustering, have one subagent re-read the covers of the
+top-10 by views and of any card that looks off against its post, and return corrected
+cards only: Sonnet occasionally "fixes" an author typo despite the rule (1 of 10 typos on
+the test run).
 
-**NATIVE:** Read cover images with the Read tool, ~10 per message, all batches, and write
-cards.json with the Write tool.
+**NATIVE** (only on the user's request): Read cover images with the Read tool, ~10 per
+message, all batches, and write cards.json with the Write tool.
 
 **FAST:**
 
@@ -174,10 +189,95 @@ python3 ~/.claude/skills/social-account-hook-analysis/scripts/ocr_covers.py \
   "$WORK_DIR/meta.json" --out "$WORK_DIR/cards.json" --provider auto
 ```
 
-Then read `cards.json`; manually Read every cover with `ocr_failed: true`, empty
-`hook_text`, or a card that looks inconsistent. Known FAST limitations: cheap models
+Then read `cards.json`; send every cover with `ocr_failed: true`, empty `hook_text`, or a
+card that looks inconsistent to a Sonnet subagent for a re-read. Known FAST limitations: cheap models
 silently fix typos and sometimes mislabel visual_format — treat cards as raw material,
 not truth.
+
+### Step 3b — Slide table: Haiku reads every slide, the main session reads the table
+
+Every carousel slide becomes one row of a table: verbatim text and the picture, read in
+one pass by Haiku subagents at full size. Apple Vision OCR runs first as a free draft and
+cross-check. The main session (Opus) finds the patterns from the table and never opens a
+slide (Mode selection). Covers stay with Step 3 (`cards.json`).
+
+| Reader | Use for | Text vs the Sonnet reading: 124 slides of 17 carousels / 26 hard slides | Cost and time (Cost & runtime) |
+|---|---|---|---|
+| **Haiku 5.5 subagents** (default) | text and picture of every slide of every carousel in the sample | 92.9% / 93.6% word accuracy in order, F1 96.7 / 96.4; recall 100% once Sonnet's «HE:» / «SHE:» labels are removed | $0.008–0.011 per slide, 4–5 min per subagent of 40 slides, all subagents in parallel |
+| **Apple Vision** (`ocr`) | free draft and cross-check (`ocr_agree`); text-only fallback when no subagents can run | 93.9% / 85.2%, F1 97.1 / 95.7: on plain listicles as good as Haiku; loses order in bubbles and columns, misses hand lettering | $0, ~25 s per 1000 slides |
+| **Sonnet 5.5 subagent** | slides in `read/needs_sonnet.json`; hits whose story hangs on a small prop or gesture | reference | ~$0.049 per slide (8 subagents × 126: up to 18 min, $49) |
+
+```bash
+FS=~/.claude/skills/social-account-hook-analysis/scripts/fast_slides.py
+python3 $FS ocr "$WORK_DIR" [--indexes 3,7 | --top 30] [--lang en-US]
+python3 $FS read "$WORK_DIR"        # one prompt per Haiku subagent, 40 slides each
+# launch every Haiku subagent in ONE message, then:
+python3 $FS table "$WORK_DIR"
+python3 $FS show "$WORK_DIR" --hits  # what the main session reads
+```
+
+1. `ocr` downloads the missing slides of the chosen carousels (all carousels by default,
+   no comments) into `carousels/NN/slideK.jpg`, OCRs them in 8 processes and writes
+   `slides_ocr.jsonl` (the slide list for `read`) and a text-only `carousels/NN/slides.json`.
+   A slides.json that Claude wrote by hand is kept unless `--force`. Other languages:
+   `--lang en-US,ru-RU` or `--lang auto`; the English OCR fixes (pronoun I, spell checker)
+   then switch off. TikTok HEIC served as `.webp` is read as is.
+2. `read` writes `read/prompt-K.md`, one per 40 slides (`--per-agent`), from
+   `references/haiku_slide_prompt.md`. `--hint` puts the Vision draft under each slide:
+   measured, it changed formatting only (① vs 1, line breaks), not accuracy, so it is off.
+3. Launch every Haiku subagent in ONE message: `subagent_type: "general-purpose"`,
+   `model: "haiku"`, prompt `Read <WORK_DIR>/read/prompt-K.md and follow it exactly;
+   reply with one line.` Each writes `read/slides-part-K.jsonl` and replies
+   "N slides written, M unreadable". A part that comes back short: relaunch that prompt.
+4. `table` writes
+   - `slides_table.jsonl` + `slides_table.csv`, a row per slide: `post`, `post_id`, `url`,
+     the metric (`views` or `likes`), `slide_no`, `text` (verbatim, `\n` between lines),
+     `words`, `role` (hook / point / integration / cta / other), `people`, `background`,
+     `art_style`, `text_style`, `product_mention`, `unreadable`, `visual`, `source`
+     (haiku / sonnet / ocr), `ocr_text`, `ocr_agree` (word overlap with Vision, 0–1), `check`;
+   - `posts_table.csv`, a row per post: url, owner_url, date, kind, slides, views, likes,
+     comments, shares, saves, x_median, caption, hook, integration_slides, product_mentions;
+   - `carousels/NN/slides.json` for `render_report.py` and `export_csv.py`;
+   - `read/needs_sonnet.json`: slides Haiku marked unreadable or with `[?]`, slides with no
+     Haiku row, and slides whose text shares < 0.6 of its words with the Vision draft
+     (`--min-agree`, only when Vision found 5+ words).
+5. Sonnet: one subagent (`model: "sonnet"`) gets the files from `needs_sonnet.json` plus the
+   hits whose point is a visual metaphor, with the same prompt template, writes
+   `read/fix-1.jsonl` (same keys); run `table` again and those rows read `source: sonnet`.
+
+**When Sonnet, not Haiku.** On 150 test slides Haiku was not worse than Sonnet on any kind
+of text. Hand-lettered crayon CAPS of a 3.5M-view comic came out word for word; the only
+diffs there were circled numerals ①–⑧ that are on the slides and Sonnet left out. Where the
+two differ elsewhere, Haiku is mostly the one that is right:
+- it keeps text drawn in the picture (phone notifications, a grocery list, a habit
+  calendar, signs), ~4% of its words. That text sits in `text`, so build the hook formula
+  from the headline and bubbles, not from every word of the slide;
+- 8 of its 3689 words are in neither the Sonnet nor the Vision reading: 6 are Vision
+  misreads Haiku got right («Farmilly», «T'M FEELING OVERMHELMED», a missed «Eggs»), 2
+  are unconfirmed labels;
+- bubble order differs from Sonnet's on 2 of 101 dialogue slides: an answer bubble drawn
+  above the question came first (Vision did the same), a «HA HA HA!» bubble came where it
+  is drawn. On the hard comic set: Haiku 2 of 19, Vision 5 of 19.
+
+The visual is where Haiku falls short: at full size it gets people, panels, style and
+setting right, but missed scissors about to cut a red thread and a broken crown, the props
+that carry the metaphor. So: Sonnet for flagged slides and for hits whose story is in a
+small object; Haiku for the rest. `table` flagged 0 of 124 and 0 of 26 test slides
+(`ocr_agree` p5 0.95, min 0.83). Not tested yet: non-English slides and dense small print
+(long screenshots); check `ocr_agree` there before trusting the table.
+
+**Reading the table (main session).** The whole table is ~330K tokens per 1000 slides, so
+never Read `slides_table.*` in full. Read `posts_table.csv` (a row per post), then pull
+slices: `show --hits` (posts ≥ 5× median), `show --top 20`, `show --posts 3,7`
+(`--fields art_style,people,visual,product_mention`), or filter the jsonl with a short
+Python one-liner (all `role == "integration"` rows, all slide-1 texts).
+
+**Cheaper visual-only variant** (no full-size reading): `ocr`, then `sheets` (contact sheets
+of 21 slides, `references/haiku_visual_prompt.md`), Haiku subagents per 6 sheets, then
+`merge` (visual fields into slides.json, `needs_read.json` where Vision lost part of the
+headline Haiku sees) and `fix` for the model's re-reads. $0.005 per slide instead of
+$0.008–0.011, but the text is Vision's and the visual is coarse: it missed a two-panel
+layout and called a tally board "a grid of photos".
 
 ### Step 4 — Cluster patterns (Claude, always)
 
@@ -185,10 +285,17 @@ Cluster across **two axes: text formula × visual format**. A pattern is a repea
 combination worth replicating (e.g. «CAPS "[VERB] X WITH [TOOL]" on a branded dark
 design» or «accusation hook over embedded tweet-proof»). Rules:
 
-- Pattern needs **3+ videos**; 1–2 similar covers → `unassigned` (mention in insights
-  only if the signal is interesting).
+- **A pattern is at least 3 posts** (videos or carousels), counted among mature posts:
+  the ones its median uses (not young, inside `--since`). Max (2026-11-10): «паттерн из
+  двух – это прямо мало». A group of 1–2: merge it into the closest pattern by meaning or
+  put it in `unassigned`; a group of 3 with one young post is still 2. A single striking
+  post goes to the virals, never a pattern of its own. `pattern_stats.py` moves any smaller
+  group out of `patterns` into `smallGroups` and names it on stderr: fix clusters.json
+  and rerun rather than report it.
 - Every index appears **exactly once** across `patterns[].indexes` + `unassigned`.
 - Formulas with [PLACEHOLDERS]; keep hook examples verbatim.
+- Carousels: the slide formula, the integration slot and the visual come from the slide
+  table (`posts_table.csv`, `show --hits`, `show --posts`), never from opening slides.
 
 Write `clusters.json`:
 
@@ -244,8 +351,13 @@ labels.json field (restrict with `--split-by`).
   nothing is excluded (`fallbackAllYoung`).
 - `--since` narrows the stats to a window without re-fetching (`window.excluded`); the
   stderr `window:` line says how many posts are in it.
-- Every pattern and split bucket carries `belowMinimum` (< 3 posts); the renderer draws
-  those bars thin and marks them «мало данных». Do not draw conclusions from them.
+- Every split bucket carries `belowMinimum` (< 3 posts); the renderer draws those bars
+  thin and marks them «мало данных». Do not draw conclusions from them.
+- Patterns under 3 mature posts are not in `patterns` at all: they sit in `smallGroups`
+  (same fields), outside the ranking. The renderer puts their posts under «Без паттерна»
+  with one line naming the groups. Checked on research/volatvio/latest (2026-11-10):
+  «Милота: маленький жест» and «Зеркальный упрёк» (2 mature posts each) left the 19
+  patterns, 17 remain.
 - ER = (likes + comments + shares + saves) / views × 100. `social-account-short-analysis` reports
   comment rate (comments / views × 100) and virality instead of ER, so compare those, not ER, across the two skills.
   In likes mode (Instagram posts) ER is `null`: there are no views to divide by. For "selfie vs place/landscape" use `background`: `has_person` also counts
@@ -264,8 +376,9 @@ Content, whatever the output form:
    `### 🔥 Name — 4.0x · 7 videos` (🏆 >5x / 🔥 >3x / ⚡ >1.5x / ⚠️ <1x / 📉 <0.5x).
    For each: formula, visual format, stats row (median/avg views, virality, median
    likes/saves, save rate, engagement), top-3 videos with links + verbatim hooks, flags from
-   report.json (`outlierWarning` → «⚠️ среднее раздуто одним виралом»,
-   `belowMinimum` → not a real pattern).
+   report.json (`outlierWarning` → «⚠️ среднее раздуто одним виралом»). Only
+   `patterns` from report.json (3+ mature posts) get a header; `smallGroups` are not
+   patterns: at most one line, never a header, a rank or a top-N slot.
 3. **Virals slide by slide** (TikTok carousels): large slides plus one row of metrics as
    icon + number (views, × median, likes, comments, saves, shares, slides, date, open link).
    Nothing else: no hook text (it is already on the slides), no top comment, no description
@@ -388,6 +501,49 @@ Measured on @evividm, 87 carousels (2026-11-03): fetch with `--slides-top 6` 64 
 < 1 s, render < 1 s (148 KB page, 104 images, 5.1 MB, 5 batches), snapshot check 8 s
 (14 screenshots), export + save 1 s.
 
+### Step 3b slide reading: Haiku vs Vision vs Sonnet (measured 2026-11-10, TikTok @volatvio_official)
+
+Reference: 1006 slides of 143 carousels read verbatim, text + picture, by 8 Sonnet 5.5
+subagents of ~126 slides each. Dollars are API list prices applied to the token usage in
+the subagent transcripts, deduplicated by message id (cache reads 0.1× input, Sonnet 5.5
+$0.20; 5-minute cache writes 1.25×; Haiku 5.5 on its $0.50 / $2.50 card once a prompt
+passes 100K). On a Claude subscription it is quota, not dollars; the ratio holds.
+
+| | Sonnet 5.5, full size (reference) | **Haiku 5.5, full size (default)** | Apple Vision OCR | Haiku 5.5, contact sheets |
+|---|---|---|---|---|
+| Reads | text + picture | text + picture | text | picture only, text stays Vision's |
+| Measured run | 1006 slides, 8 subagents × ~126 | 124 slides of 17 carousels, 3 subagents × 40–42 | 1006 slides, 8 processes | 124 slides, 1 subagent, 6 sheets |
+| Time | 6.5–18 min per subagent, ~18 min wall clock | 247–311 s per subagent, ~5 min wall clock | 18–28 s | 569 s |
+| Billed tokens | 9.9M cache write + 79.0M cache read + 0.84M output, 417 requests | 0.53M + 3.45M + 0.23M, 27 requests | – | 0.17M output |
+| Cost | $49.05, $0.049 per slide | $1.00, $0.0081 per slide; 26 slides in one subagent: $0.28, $0.011 | $0 | $0.59, $0.0048 per slide |
+| 1006 slides | as measured | projected: ~25 subagents × 40, $8–11, ~5 min if they all start in one message (tested with 3) | as measured | projected: ~$5 |
+
+Text accuracy against the Sonnet reading (order-aware word accuracy / bag-of-words F1;
+identical = equal after case, punctuation and line breaks are normalized):
+
+| Set | Haiku full size | Vision OCR |
+|---|---|---|
+| 124 slides | 92.9% / 96.7, 66 identical | 93.9% / 97.1, 63 identical |
+| 124 slides, Sonnet's «HE:» / «SHE:» removed | 94.8% / 97.8, recall 100%, 89 identical | 95.9% / 98.2, 96 identical |
+| 26 hard slides: crayon dialogue comic, two-column comparison, stylized and doodle listicles | 93.6% / 96.4, 12 identical | 85.2% / 95.7 |
+| 1006 slides | not run | 92.3% / 96.7, 41% identical; raw Vision before the fixes 83.2% / 95.4 |
+
+On plain listicles Vision is as good as Haiku. Haiku's lower order score on the 124 is the
+text drawn in the picture that it keeps and Sonnet leaves out (Step 3b, "When Sonnet");
+its recall is 100% and 0.2% of its words are in neither other reading. Vision falls behind
+on hand lettering, bubbles and columns (the 26 hard slides). `--hint`, the Vision draft
+under each slide, did not change Haiku's scores ($0.27 vs $0.28 on the 26). The
+contact-sheet variant on the 26: `merge` flagged 5 slides, all real headline losses; after
+re-reading them 87.4% / F1 97.1.
+
+Why Sonnet costs 6× more per slide: its card is 20× Haiku's under 100K, every slide a
+subagent Reads stays in its context, and each next request reads that context again from
+cache (79M cache-read tokens for 1006 slides). A Haiku subagent reads 8 slides per message
+and is done in 8–10 requests. Each Claude Code subagent starts with a ~91K-token base
+prompt (system + tool list), so Haiku 5.5 crosses the 100K line after its first images and
+the rest of the run is billed on the higher card; output, mostly thinking, is ~58% of the
+Haiku bill.
+
 ## Notes
 
 - The old pipeline (`src/scripts/analyze-cover-hooks.ts` in the repo, Gemini OCR →
@@ -406,3 +562,24 @@ Measured on @evividm, 87 carousels (2026-11-03): fetch with `--slides-top 6` 64 
   flag in this endpoint. Tested on @natgeo (12 posts: 3 carousels, 7 reels, 2 photos).
 - Large accounts (32 142 posts on @natgeo): never `--all`; use `--since` for a period or
   `--count`, and say in the report that hits outside the window are unknown.
+- Slide table, Haiku text (150 test slides): keeps numerals and text drawn in the picture
+  (sticky notes, phone notifications, lists) that Sonnet dropped, adds no speaker labels,
+  and follows the dialogue order of bubbles except where an answer is drawn above the
+  question (1 of 101 dialogue slides). Words it has that neither Sonnet nor Vision has:
+  0.2%, mostly Vision misreads it got right. Step 3b → "When Sonnet, not Haiku".
+- Vision OCR text (`ocr`: the draft, the cross-check and the text-only fallback), known
+  differences from a model reading (checked slide by slide on the 26-slide test set):
+  - Text drawn inside the picture (sticky notes, signs) is kept: big lines in `text`,
+    small ones in `aside`. A model mostly skips it; it is ~3% of the words.
+  - Speech bubbles come in geometric order (column by column, higher bubble first), not
+    dialogue order. No speaker labels: Sonnet added «HE:» / «SHE:» that are not on the
+    slides, and dropped the circled numerals that are.
+  - Watermarks (the brand name in a corner) land in `aside`, not `text`.
+  - OCR slips fixed: l / | / 1 read for the pronoun I (listicle numbers kept), missing
+    spaces and apostrophes, Cyrillic look-alike letters, a numeral glued to a word. Each fix
+    is logged in `slides_ocr.jsonl` → `fixes`; author typos stay (only spell-checker
+    guesses shaped like an OCR slip are taken). Leftover risk: a compound split in two
+    («zipline» → «zip line»).
+  - Missed by Vision: big decorative numerals, hand-lettered headlines, letters over busy
+    backgrounds. The headline cases come back through `needs_read.json`; small decorative
+    text does not, so the old path stays for carousels where the lettering is the hook.

@@ -28,8 +28,9 @@ collecting views, so every median leaves them out; hits (≥5× median) still in
 
 Metric: meta.metric — "views", or "likes" for Instagram posts mode (no views for carousels
 and photos). Keys keep their names (medianViews = median of the metric).
-ER = (likes + comments + shares + saves) / views (social-account-short-analysis reports
-comment rate instead); null when the metric is not views.
+ER = (likes + comments + shares + saves) / views; comment rate = comments / views × 100
+(medianCommentRate, the same definition as social-account-short-analysis). Both null when
+the metric is not views.
 
 Validation is STRICT: every video index 0..N-1 must appear exactly once across
 patterns + unassigned. Duplicates or missing indexes → exit 1 with the list,
@@ -38,8 +39,10 @@ so the caller must fix the assignment (no silent drops possible).
 Output: report JSON with metric, window, young posts, account median + save/share rates
 and ER, view concentration and hits, per-pattern stats sorted by median (count,
 median/avg, virality, median likes/saves, save/share rate, ER, top-5, outlier &
-small-sample flags) and splits: format, pinned, period (publication month) and every
+small-sample flags, median comment rate) and splits: format, pinned, period (publication month) and every
 categorical card/label field. Every split bucket carries belowMinimum (< 3 posts).
+A pattern needs 3 mature posts (the ones its median counts): a smaller group goes to
+smallGroups (same fields), never into patterns or their ranking, and stderr names it.
 """
 import argparse, json, statistics, sys
 from datetime import date
@@ -131,6 +134,11 @@ def main():
 
     acc_median = median([val(i) for i in stat])
 
+    def cr_median(idxs):
+        if metric != "views":
+            return None
+        return round(median([rate(videos[i], "comments") for i in idxs]), 2)
+
     def group(idxs):
         med = median([val(i) for i in idxs])
         vids = [videos[i] for i in idxs]
@@ -138,6 +146,7 @@ def main():
                 "viralityRate": round(med / acc_median, 2) if acc_median else 0,
                 "medianSaveRate": round(median([rate(v, "saves") for v in vids]), 2),
                 "medianShareRate": round(median([rate(v, "shares") for v in vids]), 2),
+                "medianCommentRate": cr_median(idxs),
                 "belowMinimum": len(idxs) < MIN_N,
                 "indexes": sorted(idxs, key=lambda i: -val(i))}
 
@@ -160,6 +169,7 @@ def main():
             "medianSaves": round(median([videos[i]["saves"] for i in st_idx])),
             "medianSaveRate": g["medianSaveRate"],
             "medianShareRate": g["medianShareRate"],
+            "medianCommentRate": g["medianCommentRate"],
             "medianEngagement": round(median(eng) * 100, 2) if eng else None,
             "outlierWarning": bool(vals) and av > 3 * med and len(vals) >= 2,
             "belowMinimum": len(st_idx) < MIN_N,
@@ -167,12 +177,15 @@ def main():
             "youngIndexes": [i for i in shown if i in young_set],
             "topVideos": [{"index": i, "id": videos[i]["id"], "views": videos[i]["views"],
                            "value": val(i), "likes": videos[i]["likes"], "saves": videos[i]["saves"],
+                           "comments": videos[i]["comments"], "commentRate": cr_median([i]),
                            "date": videos[i]["date"], "link": videos[i]["link"]} for i in shown[:5]],
         }
 
-    out_patterns = [build(p["patternName"], p.get("formula", ""), p.get("visualFormat", ""),
-                          p["indexes"]) for p in clusters.get("patterns", [])]
-    out_patterns.sort(key=lambda p: -p["medianViews"])
+    built = [build(p["patternName"], p.get("formula", ""), p.get("visualFormat", ""),
+                   p["indexes"]) for p in clusters.get("patterns", [])]
+    # a pattern needs MIN_N mature posts: a group of 1-2 never ranks as a pattern
+    out_patterns = sorted((p for p in built if not p["belowMinimum"]), key=lambda p: -p["medianViews"])
+    small_groups = sorted((p for p in built if p["belowMinimum"]), key=lambda p: -p["medianViews"])
 
     # --- splits: format, pinned, period from meta; categorical fields from cards + labels ---
     def split(values):
@@ -237,6 +250,7 @@ def main():
         "accountMedianViews": round(acc_median),
         "accountMedianSaveRate": round(median([rate(videos[i], "saves") for i in stat]), 2),
         "accountMedianShareRate": round(median([rate(videos[i], "shares") for i in stat]), 2),
+        "accountMedianCommentRate": cr_median(stat),
         "accountMedianEngagement": round(median(acc_eng) * 100, 2) if acc_eng else None,
         "engagementFormula": ER_FORMULA if metric == "views" else None,
         "concentration": {
@@ -245,9 +259,11 @@ def main():
             "top5Share": round(100 * sum(val(i) for i in by_val[:5]) / total, 1) if total else 0,
             "hitsShare": round(100 * sum(val(i) for i in hits) / total, 1) if total else 0,
             "hits": [{"index": i, "views": val(i), "young": i in young_set,
-                      "multiplier": round(val(i) / acc_median, 1)} for i in hits],
+                      "multiplier": round(val(i) / acc_median, 1),
+                      "commentRate": cr_median([i])} for i in hits],
         },
         "patterns": out_patterns,
+        "smallGroups": small_groups,
         "unassigned": {
             "count": len(un_shown),
             "indexes": un_shown,
@@ -259,6 +275,10 @@ def main():
     print(f"window: {len(inwin)}/{n} posts in window; {len(young)} young (<{args.min_age_days} d) left out "
           f"of medians {young}{' (all young: kept)' if young_fallback else ''}; metric {metric}; "
           f"account median {round(acc_median)}", file=sys.stderr)
+    if small_groups:
+        print(f"not patterns (< {MIN_N} mature posts), moved to smallGroups: "
+              + ", ".join(f"{p['patternName']} ({p['count']})" for p in small_groups)
+              + " -> merge each into a close pattern or unassigned in clusters.json", file=sys.stderr)
     text = json.dumps(report, ensure_ascii=False, indent=1)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:

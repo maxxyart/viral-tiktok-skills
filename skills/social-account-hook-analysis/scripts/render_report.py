@@ -76,8 +76,9 @@ L = {
   "views": "просмотров", "ofMedian": "медианы", "saves": "сохр.", "shares": "репостов",
   "comments": "комм.", "sl": "сл.", "video": "видео", "pinned": "закреп",
   "med": "медиана", "avg": "среднее", "likesMed": "медиана лайков", "savesMed": "медиана сохр.",
-  "saveRate": "сохранений", "er": "ER", "outlier": "среднее раздуто одним виралом",
+  "saveRate": "сохранений", "er": "ER", "cr": "comment rate", "outlier": "среднее раздуто одним виралом",
   "small": "меньше 3 постов, это не паттерн", "formula": "Формула", "visualF": "Визуал",
+  "smallLine": "Группы меньше 3 постов паттернами не считаются, их посты здесь: {g}.",
   "topComment": "топ-коммент", "open": "Открыть пост",
   "source": "Источник:", "who": "Кто и где:", "alts": "Ещё хуки:",
   "footer": "Данные ScrapeCreators на {d}. Обложки прочитаны и разложены по двум осям: формула текста и визуальный формат. Цифры посчитал pattern_stats.py, множитель = медиана группы / медиана аккаунта, ER = (лайки + комментарии + репосты + сохранения) / просмотры.",
@@ -88,7 +89,7 @@ L = {
   "sampleLatest": "Разобраны последние {n} из {t} постов: более ранние посты, в том числе возможные виралы, в выборку не попали.",
   "sampleSince": "Разобраны {n} постов, опубликованных с {d}.",
   "windowNote": "В цифрах только посты с {d}, ещё {k} более ранних не учтены.",
-  "youngNote": "{n} {posts} моложе {d} дней ещё набирают просмотры: в сетке они есть, в медианах нет.",
+  "youngNote": "Моложе {d} дней: {n} {posts}. Их просмотры ещё растут, поэтому в сетке они есть, в медианах нет.",
   "metricLikes": "Instagram не показывает просмотры каруселей и фото, поэтому все сравнения здесь по лайкам.",
   "product": "Что взять для продукта", "yourHook": "Хук для продукта", "how": "Как адаптировать",
   "allPosts": "Все посты", "allLead": "Вся выборка одной сеткой. По дате видны серии и то, как форматы выдыхаются.",
@@ -121,8 +122,9 @@ L = {
   "views": "views", "ofMedian": "median", "saves": "saves", "shares": "shares",
   "comments": "comments", "sl": "sl.", "video": "video", "pinned": "pinned",
   "med": "median", "avg": "average", "likesMed": "median likes", "savesMed": "median saves",
-  "saveRate": "save rate", "er": "ER", "outlier": "average inflated by one hit",
+  "saveRate": "save rate", "er": "ER", "cr": "comment rate", "outlier": "average inflated by one hit",
   "small": "fewer than 3 posts, not a pattern", "formula": "Formula", "visualF": "Visual",
+  "smallLine": "Groups under 3 posts do not count as patterns; their posts are here: {g}.",
   "topComment": "top comment", "open": "Open post",
   "source": "Source:", "who": "Who and where:", "alts": "More hooks:",
   "footer": "ScrapeCreators data as of {d}. Covers were read and grouped on two axes: text formula and visual format. Numbers by pattern_stats.py; multiplier = group median / account median; ER = (likes + comments + shares + saves) / views.",
@@ -207,6 +209,10 @@ section.block{padding-top:56px; display:grid; gap:20px}
 .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 .strip{display:flex; gap:10px; overflow-x:auto; padding-bottom:8px; scroll-snap-type:x proximity}
 .strip img{height:460px; width:auto; border-radius:8px; flex:0 0 auto; scroll-snap-align:start; background:var(--chip)}
+.vgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px}
+.vgrid .viral{padding:16px; align-content:start}
+.vgrid .strip{overflow:visible; padding-bottom:0}
+.vgrid .strip img{height:auto; width:100%; flex:1 1 auto}
 .patnav{display:flex; flex-wrap:wrap; gap:8px}
 .patnav a{font-size:14px; text-decoration:none; color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:5px 12px; background:var(--surface)}
 .patnav a b{color:var(--ember); font-variant-numeric:tabular-nums}
@@ -442,6 +448,7 @@ def main():
             kind = ""
         pin = f" · {T['pinned']}" if v.get("isPinned") else ""
         new = f' · <span class="young">{T["young"]}</span>' if i in young else ""
+        cr = f" · 💬\u00a0{dec(100 * v['comments'] / v['views'], 2)}%" if v.get("views") and v.get("comments") is not None else ""
         hook = hook_of(i)
         if i in cover_size:
             w, h = cover_size[i]
@@ -452,7 +459,7 @@ def main():
                 f'<a href="{E(v["link"])}" target="_blank" rel="noopener" class="cover" title="{T["open"]}">{img}'
                 f'<span class="views">{PLAY}{fmt(v["views"])}</span></a>'
                 f'<figcaption><span class="mult">{mult(r)}</span>'
-                f'<span class="meta">{fdate(v["date"])}{kind}{pin}{new} · #{i:02d}</span>'
+                f'<span class="meta">{fdate(v["date"])}{kind}{pin}{new}{cr} · #{i:02d}</span>'
                 f'<span class="hook">{E(hook)}</span></figcaption></figure>')
 
     # ---------- virals ----------
@@ -510,25 +517,29 @@ def main():
     def badge(r):
         return "🏆" if r > 5 else "🔥" if r > 3 else "⚡" if r > 1.5 else "·" if r >= 1 else "⚠️" if r >= 0.5 else "📉"
 
-    pats = sorted(rep["patterns"], key=lambda p: -p["viralityRate"])
+    # groups under 3 mature posts are not patterns (smallGroups; older report.json files still
+    # carry them in patterns with belowMinimum): their posts go to the "no pattern" grid
+    small = [p for p in (rep.get("smallGroups") or []) + rep["patterns"] if p.get("belowMinimum")]
+    pats = sorted((p for p in rep["patterns"] if not p.get("belowMinimum")), key=lambda p: -p["viralityRate"])
+    pat_idx = lambda p: [i for i in (p.get("indexes") or cl_by.get(p["patternName"], {}).get("indexes", []))
+                         if i not in excluded]
     pat_html = []
     for k, p in enumerate(pats, 1):
-        idx = p.get("indexes") or cl_by.get(p["patternName"], {}).get("indexes", [])
-        idx = sorted((i for i in idx if i not in excluded), key=lambda i: -videos[i]["views"])
+        idx = sorted(pat_idx(p), key=lambda i: -videos[i]["views"])
         flags = ""
         if p.get("outlierWarning"):
             flags += f'<span class="chip warn">{T["outlier"]}</span>'
-        if p.get("belowMinimum"):
-            flags += f'<span class="chip warn">{T["small"]}</span>'
         save = f'<span class="chip">{T["saveRate"]} {dec(p["medianSaveRate"])}%</span>' if "medianSaveRate" in p and has_eng else ""
         saves_med = f'<span class="chip">{T["savesMed"]} {fmt(p["medianSaves"])}</span>' if has_eng else ""
         er_chip = (f'<span class="chip">{T["er"]} {dec(p["medianEngagement"], 2)}%</span>'
                    if p.get("medianEngagement") is not None else "")
+        cr_chip = (f'<span class="chip">{T["cr"]} {dec(p["medianCommentRate"], 2)}%</span>'
+                   if p.get("medianCommentRate") is not None else "")
         note = f'<p class="note">{md(notes[p["patternName"]])}</p>' if p["patternName"] in notes else ""
         pat_html.append(f"""<section class="pattern" id="p{k}">
   <header>
     <h3><span class="badge" aria-hidden="true">{badge(p['viralityRate'])}</span>{E(p['patternName'])} <span class="rate">{mult(p['viralityRate'])} · {p['count']} {plural(p['count'], T['posts'])}</span></h3>
-    <p class="chips"><span class="chip strong">{T['med']} {fmt(p['medianViews'])}</span><span class="chip">{T['avg']} {fmt(p['avgViews'])}</span><span class="chip">{T['likesMed']} {fmt(p['medianLikes'])}</span>{saves_med}{save}{er_chip}{flags}</p>
+    <p class="chips"><span class="chip strong">{T['med']} {fmt(p['medianViews'])}</span><span class="chip">{T['avg']} {fmt(p['avgViews'])}</span><span class="chip">{T['likesMed']} {fmt(p['medianLikes'])}</span>{saves_med}{save}{cr_chip}{er_chip}{flags}</p>
     <dl class="fv"><div><dt>{T['formula']}</dt><dd><code>{E(p.get('formula', ''))}</code></dd></div><div><dt>{T['visualF']}</dt><dd>{E(p.get('visualFormat', ''))}</dd></div></dl>
     {note}
   </header>
@@ -538,11 +549,14 @@ def main():
                      for k, p in enumerate(pats, 1))
     un = rep.get("unassigned") or {}
     un_html = ""
-    if un.get("count"):
-        idx = sorted(un["indexes"], key=lambda i: -videos[i]["views"])
+    un_idx = set(un.get("indexes") or []) | {i for p in small for i in pat_idx(p)}
+    if un_idx:
+        idx = sorted(un_idx, key=lambda i: -videos[i]["views"])
+        groups = ", ".join("%s (%d)" % (E(p["patternName"]), len(pat_idx(p))) for p in small)
+        small_note = f'<p class="note">{T["smallLine"].format(g=groups)}</p>' if small else ""
         un_html = (f'<section class="pattern" id="unassigned"><header><h3>{T["unassigned"]} '
-                   f'<span class="rate">{un["count"]} {plural(un["count"], T["posts"])}</span></h3>'
-                   f'<p class="note">{T["unassignedLead"]}</p></header>'
+                   f'<span class="rate">{len(idx)} {plural(len(idx), T["posts"])}</span></h3>'
+                   f'<p class="note">{T["unassignedLead"]}</p>{small_note}</header>'
                    f'<div class="grid">{"".join(tile(i) for i in idx)}</div></section>')
 
     # ---------- splits ----------
@@ -574,12 +588,16 @@ def main():
             labels = (s.get("labels") or label_names.get(s["key"]) or T["valueLabels"].get(s["key"])
                       or T["valueLabels"]["_bool"])
         mx = max(r["medianViews"] for r in rows) or 1
+        # no backslash inside f-string expressions: Python 3.10/3.11 reject it
+        cr_of = lambda r: (" · 💬\u00a0" + dec(r["medianCommentRate"], 2) + "%"
+                           if r.get("medianCommentRate") is not None else "")
         out = "".join(
             f'<div class="bar{" thin" if r.get("belowMinimum") else ""}">'
             f'<span class="bl">{E(labels.get(r["value"], r["value"]))} <small>n={r["count"]}'
             f'{" · " + T["few"] if r.get("belowMinimum") else ""}</small></span>'
             f'<span class="track"><span class="fill" style="width:{100 * r["medianViews"] / mx:.1f}%"></span></span>'
-            f'<span class="bv">{fmt(r["medianViews"])} <small>{mult(r["viralityRate"])}</small></span></div>'
+            f'<span class="bv">{fmt(r["medianViews"])} <small>{mult(r["viralityRate"])}'
+            f'{cr_of(r)}</small></span></div>'
             for r in rows)
         title = s.get("title") or T["splitTitles"].get(s["key"], s["key"])
         bars_html.append(f'<h4>{E(title)}</h4><div class="bars">{out}</div>')
@@ -626,8 +644,9 @@ def main():
                     if ins.get("summary") else "")
     any_slides = any(os.path.isdir(os.path.join(W, "carousels", f'{d["index"]:02d}')) for d in viral_specs)
     vt, vl = (T["virals"], T["viralsLead"]) if any_slides else (T["viralsCovers"], T["viralsLeadCovers"])
+    vg_open, vg_close = ("", "") if any_slides else ('<div class="vgrid">', "</div>")
     virals_html = (f'<section class="block" id="virals"><h2>{vt}</h2><p class="lead">{vl}</p>'
-                   f'{"".join(viral(d) for d in viral_specs)}</section>') if viral_specs else ""
+                   f'{vg_open}{"".join(viral(d) for d in viral_specs)}{vg_close}</section>') if viral_specs else ""
 
     # ---------- product: what to take from this account ----------
     product_html = ""

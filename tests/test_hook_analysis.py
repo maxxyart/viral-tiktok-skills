@@ -73,10 +73,12 @@ class PatternStatsTest(unittest.TestCase):
 
     def test_small_groups_and_periods_are_flagged(self):
         with tempfile.TemporaryDirectory() as d:
-            _, rep = stats(make_work_dir(Path(d)))
-            pats = {p["patternName"]: p for p in rep["patterns"]}
-            self.assertTrue(pats["A"]["belowMinimum"])   # 2 mature posts
-            self.assertFalse(pats["B"]["belowMinimum"])
+            res, rep = stats(make_work_dir(Path(d)))
+            # a group of 2 mature posts is not a pattern: it leaves the ranking for smallGroups
+            self.assertEqual([p["patternName"] for p in rep["patterns"]], ["B"])
+            self.assertFalse(rep["patterns"][0]["belowMinimum"])
+            self.assertEqual([(g["patternName"], g["belowMinimum"]) for g in rep["smallGroups"]], [("A", True)])
+            self.assertIn("smallGroups: A (", res.stderr)
             periods = {s["value"]: (s["count"], s["belowMinimum"]) for s in rep["splits"]["period"]}
             self.assertEqual(periods, {"2026-08": (1, True), "2026-09": (2, True), "2026-10": (3, False)})
             self.assertIn("theme", rep["splits"])

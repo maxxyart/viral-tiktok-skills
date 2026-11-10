@@ -13,6 +13,6 @@ for name in ("social-account-short-analysis", "social-account-hook-analysis"):
     folder = root / "skills" / name
     with zipfile.ZipFile(target / f"{name}.zip", "w", zipfile.ZIP_DEFLATED) as archive:
         for file in sorted(folder.rglob("*")):
-            if file.is_file() and file.suffix in {".md", ".py", ".yaml"} and "__pycache__" not in file.parts:
+            if file.is_file() and file.suffix in {".md", ".py", ".yaml", ".swift"} and "__pycache__" not in file.parts:
                 archive.write(file, file.relative_to(folder.parent))
     print(target / f"{name}.zip")
