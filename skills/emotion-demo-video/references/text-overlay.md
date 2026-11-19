@@ -1,50 +1,47 @@
-# Text overlay for emotion + demo videos
+# Captions for emotion + demo videos
 
-The hook text is **not** part of the generated video. It is rendered as a transparent 1080 × 1920 PNG and burned over the animated clip at assembly. A typo or a new hook variant therefore costs one re-render, not a new generation. The same rules as the carousel guide apply: measure the reference, install the font first, write final words before drawing, check every frame.
+Captions are not part of the generated video. Each one is a transparent PNG at the video size, burned over its part at assembly. A typo or a new hook variant costs one re-render, never a new generation.
 
-## Install the font first
+## Install the fonts first
 
-For TikTok-native captions, download **TikTok Sans** from the [official Google Fonts page](https://fonts.google.com/specimen/TikTok+Sans) (the [TikTok source repository](https://github.com/tiktok/TikTokSans) links to the same download). Extract the ZIP and install the `.ttf`:
+- **TikTok Sans**, the font of TikTok's own captions: download from the [Google Fonts page](https://fonts.google.com/specimen/TikTok+Sans) (the [TikTok repository](https://github.com/tiktok/TikTokSans) links the same files), extract the ZIP and install the variable `.ttf`. macOS: open it in Font Book and select **Install** (file lands in `~/Library/Fonts/`). Windows: right-click → **Install**. Linux: copy it to `~/.local/share/fonts/` and run `fc-cache -f`. Pass the file path to `--font`.
+- **Colour emoji** for a trailing emoji: Apple Color Emoji ships with macOS; on Linux install Noto Color Emoji; Windows has Segoe UI Emoji. If none is found the renderer stops and asks for `--emoji-font`. TikTok Sans has no emoji glyphs, so the renderer draws the trailing emoji separately in colour.
 
-- macOS: open the `.ttf` in Font Book and select **Install**.
-- Windows: right-click the `.ttf` and select **Install**.
-- Linux: copy the `.ttf` into `~/.local/share/fonts/`, then run `fc-cache -f`.
+The renderer fails when the font file is missing instead of falling back to a bitmap font.
 
-Pass the **actual font file path** to `--font`. TikTok Sans ships as a **variable font**; pick the weight with `--weight` (600 is close to the in-app caption, 700 for a heavier look). The in-app "Classic" caption font many creators use is Proxima Nova Semibold; it is commercial, so use it only with a licence. If the reference visibly uses another face, match that licensed font instead. Never let Pillow fall back to its default bitmap font: the renderer fails when the font file is missing. TikTok Sans covers Latin, Greek and Cyrillic.
+## Styles
 
-## Measure the reference
+| style | look | weight | where |
+|---|---|---|---|
+| `tiktok` | white, tight dark halo, no box (TikTok "Classic") | 600 | the hook, most references |
+| `neon` | pink-white core, magenta glow (TikTok "Neon") | 700 | short phrase over the demo |
+| `halo` | white with a soft wide shadow | font default | statements over busy frames |
+| `plate` | dark text on white rounded plates | font default | references that use boxes |
 
-Open the reference's first second full size and write down: font and weight, colour, halo or box, position (fraction of frame height), line count, and whether the caption stays over the demo part. Two looks cover almost every emotion hook:
+Pick the style the reference uses for each part. `--weight` overrides the default on a variable font.
 
-| style | look | use for |
-|---|---|---|
-| `halo` | white text, soft blurred dark halo, no box | default hook: "Ur telling me…", "POV:", statements |
-| `plate` | black text on a white rounded box per line | punchy labels, when the reference uses boxes |
+## Measure, then calibrate
 
-## Size, lines, placement
+Size and position come from the reference, not from a guess.
 
-- **Size follows length.** Short hook = big, long statement = smaller. The renderer picks the size from character count (clamped to 2–4 % of frame height); override with `--size` only to match a measured reference.
-- **Balanced lines.** The renderer keeps the line count of a greedy wrap and then chooses breaks that make the widest line as narrow as possible, so no single word hangs on the last line. For a deliberate break, put `\n` in a `--text-file`. Break by meaning when you have a choice.
-- **Never cover the eyes.** Text must clear the eyes and upper face. A short hook sits **above the face** (`--center-y 0.155` is a good start for a selfie framing). A longer statement may sit centred over the chin and neck. Check with `--preview still.png`.
-- **Safe zone.** The block must stay between 6 % and 86 % of the height and inside 6 % side margins: TikTok's bottom caption, buttons and top bar cover the rest. The renderer rejects a block that leaves it. Shorten or move the text; do not squeeze it.
-- **Halo strength.** Match the reference's contrast, not WCAG. Bright background: `--halo-alpha 170`; dark: `150`. The halo is soft, never a hard outline.
-- **Emoji** only if the reference has them. Colour emoji need a colour-emoji font; if the output shows empty boxes, drop the emoji.
+1. Measure: `media.py caption-lines FRAME --y0 A --y1 B [--mode neon]`. It finds the caption rows by colour inside the band and prints every line's top, bottom and width share, the block centre and the line pitch. Use the hook's first frame for the hook and a demo frame (`media.py frame ref.mp4 out.png --n <first demo frame + 20>`) for the demo phrase. Keep the band tight: white buttons and cards inside it count as text. Thin rows (UI edges) are dropped automatically.
+2. Calibrate: pass the widest measured line's text as `--calib` and its share as `--calib-frac`. The font size is chosen so that this line would be exactly as wide in TikTok Sans as in the reference. Pass `--center-y` and `--line-pitch` from the same run.
+3. Render at the video size (`--canvas 720x1280` for Wan 720P) with `--preview` on a frame of the new clip or the demo still, and read the printed block position and widest line.
 
-## Render
+In the test reference the hook measured 0.743 of the width at centre 0.29 and rendered at 46 px against 45 px picked by eye; the demo Neon phrase measured 0.669 at centre 0.739 and rendered at 37 px.
 
-```bash
-python3 -m pip install Pillow
-python3 scripts/render_hook_overlay.py --text "Ur telling me I ... for 6 YEARS and never knew this?!?!?!" \
-  --font "/absolute/path/TikTokSans.ttf" --weight 600 \
-  --out work/overlay_hook1.png --preview work/still1.png
-```
+## Lines and placement
 
-The script prints the final lines and writes `overlay_hook1_preview.jpg` with the text over your still.
+- Lines are balanced: the renderer keeps the greedy line count, then picks the breaks that make the widest line narrowest, so no word hangs alone. `\n` in `--text` forces a break.
+- The trailing emoji sits at the end of the last line, centred on the letters, and counts toward that line's width. Emoji in the middle of the text is rejected.
+- Never cover the eyes. On a close selfie the hook usually sits on the forehead or above the head, where the reference had it.
+- Safe zone: the block must stay between 6 % and 86 % of the height and inside 6 % side margins (TikTok's top bar, buttons and description cover the rest). The renderer rejects a block outside it. The demo phrase fits around 0.70–0.80.
+- On the demo, put the phrase on an empty part of the screen. If it covers app text, re-render the demo screen with that area clear rather than moving the caption out of the reference's place.
 
 ## Hook over the demo?
 
-In many references the hook stays on screen for the whole video. Keep it over the demo (`media.py assemble --overlay-on-demo`) only if it does not collide with text inside the demo recording. Otherwise show it on the hook part only.
+Default: the hook caption is shown over the hook only, and the demo gets its own short phrase. Keep the hook over the demo (`assemble --hook-overlay-on-demo`) only when the reference does that and it does not collide with the demo's text.
 
 ## Visual check
 
-Look at every preview and every final at phone size. Check: exact spelling and punctuation; no orphan word; eyes and mouth visible; nothing hidden by TikTok UI zones; the same position across the variants of one series; text readable on the brightest and darkest frame of the clip.
+Look at both previews and at the final at phone size: exact spelling and punctuation, line breaks by meaning, the emoji in colour (not an empty box), eyes and mouth visible, nothing under TikTok UI, the caption readable on the brightest and darkest frame.

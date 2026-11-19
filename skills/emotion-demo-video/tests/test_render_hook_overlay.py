@@ -18,6 +18,10 @@ FONT_CANDIDATES = (
     Path("C:/Windows/Fonts/arial.ttf"),
 )
 FONT = next((path for path in FONT_CANDIDATES if path.is_file()), None)
+def pixels(img):
+    return img.get_flattened_data() if hasattr(img, "get_flattened_data") else img.getdata()
+
+
 HOOK = "Ur telling me I yelled at my kids for 6 YEARS and never knew this?!?!?!"
 
 
@@ -55,7 +59,45 @@ class RenderHookOverlayTests(unittest.TestCase):
         MODULE.render("Wait what", FONT, out, style="plate")
         Image.new("RGB", (720, 1280), "#557799").save(self.root / "still.png")
         MODULE.preview(out, self.root / "still.png", self.root / "preview.jpg")
-        self.assertEqual(Image.open(self.root / "preview.jpg").size, (1080, 1920))
+        with Image.open(self.root / "preview.jpg") as im:
+            self.assertEqual(im.size, (1080, 1920))
+
+    def test_calibration_matches_reference_width(self):
+        ref = "everyone's July period late??"
+        info = MODULE.render("Same fight different day", FONT, self.root / "c.png", canvas=(720, 1280),
+                             calib=ref, calib_frac=0.73, center_y=0.165)
+        width = MODULE.load_font(FONT, info["font_size"], None).getlength(ref)
+        self.assertLessEqual(width, 0.73 * 720)
+        self.assertGreater(width, 0.70 * 720)
+        self.assertEqual(Image.open(self.root / "c.png").size, (720, 1280))
+
+    def test_line_pitch_and_literal_newline(self):
+        info = MODULE.render("POV:\\nme finding this app", FONT, self.root / "p.png", canvas=(720, 1280),
+                             line_pitch=0.05)
+        self.assertEqual(info["lines"], ["POV:", "me finding this app"])
+        self.assertEqual(info["step"], 64)
+
+    def test_emoji_only_at_the_end(self):
+        self.assertEqual(MODULE.split_emoji("who showed me this🥹"), ("who showed me this", "🥹"))
+        self.assertEqual(MODULE.split_emoji("same fight 😭 😭"), ("same fight", "😭😭"))
+        with self.assertRaises(ValueError):
+            MODULE.render("hi 😭 there", FONT, self.root / "e.png")
+
+    @unittest.skipUnless(any(Path(p).is_file() for p, _ in MODULE.EMOJI_FONTS), "No colour emoji font")
+    def test_trailing_emoji_is_drawn_in_colour(self):
+        out = self.root / "emoji.png"
+        info = MODULE.render("who showed me this🥹", FONT, out, canvas=(720, 1280))
+        self.assertEqual(info["emoji"], "🥹")
+        img = Image.open(out).convert("RGBA")
+        colour = [p for p in pixels(img) if p[3] > 200 and max(p[:3]) - min(p[:3]) > 80]
+        self.assertTrue(colour)  # the yellow face, not white text or a black halo
+
+    def test_neon_style_glows_magenta(self):
+        out = self.root / "neon.png"
+        MODULE.render("SAME FIGHT", FONT, out, style="neon", canvas=(720, 1280), center_y=0.74)
+        img = Image.open(out).convert("RGBA")
+        glow = [p for p in pixels(img) if p[3] > 60 and p[0] > 180 and p[1] < 120]
+        self.assertTrue(glow)
 
 
 if __name__ == "__main__":
