@@ -9,6 +9,8 @@ Format: 3–6 s of a person reacting (shock, "wait, what?", facepalm, open mouth
 
 How it works: the reference itself is the scene. Its hook clip is the motion source, its first frame gets the user's character, and Wan 3.0 re-renders the clip with the new person and the same movements. No donor backgrounds and no free-form animation prompt.
 
+**Video is made at 720p.** Wan renders the hook at 720P (720×1280), and the captions, the demo and both finals are 720×1280 at 30 fps. Do not switch to 1080P unless the user asks for it.
+
 ## 0. Ask for the inputs (never assume)
 
 Ask for everything missing in one message, then wait. Use nothing from other projects.
@@ -82,7 +84,7 @@ python3 scripts/media.py mux-audio $W/wan.mp4 $W/ref.mp4 $W/wan_sound.mp4
 python3 scripts/media.py side-by-side $W/hook.mp4 $W/wan_sound.mp4 $W/side_by_side.mp4 --audio-from $W/ref.mp4
 ```
 
-- Defaults: 720P, length = the hook clip (`--duration -1`), no generated audio, the reference sound goes on later. Model `wan/3-0-video`; `--ref-video` takes 1–15 s.
+- Resolution is always 720P (720×1280, the `kie.py` default). Length = the hook clip (`--duration -1`), no generated audio, the reference sound goes on later. Model `wan/3-0-video`; `--ref-video` takes 1–15 s.
 - Price: billed seconds = output + reference video, so a 4.8 s hook cost 160 credits ($0.80) on 18.11.2026. Typical wait 3–4 min, once 21 min. Check `kie.py credits` before a batch.
 - **One task per variant.** Every task id goes to `kie_jobs.jsonl` before polling. If polling breaks, `kie.py resume --task <id> --out <file>`. Never start a duplicate or a faster tier to race a slow task: both are billed. Wait and check.
 - The output can be one frame shorter than the hook (144 of 145). That is fine: the demo fills the rest.
@@ -110,7 +112,7 @@ python3 scripts/media.py assemble --hook $W/wan.mp4 --hook-overlay $W/hook_capti
   --audio-from $W/ref.mp4 --out $W/final.mp4
 ```
 
-- Writes `final.mp4` with the reference sound and `final_silent.mp4` without audio, both at the hook size and 30 fps.
+- Writes `final.mp4` with the reference sound and `final_silent.mp4` without audio, both 720×1280 at 30 fps (the size of the 720P hook).
 - The demo fills the reference's remaining length, so the sound ends with the video. Override with `--demo-seconds`.
 - The hook caption stays on the hook only. Add `--hook-overlay-on-demo` only when the reference keeps it over the demo.
 - A demo still is cover-fit to the frame: render app screens at 9:16 so nothing important is cropped.
